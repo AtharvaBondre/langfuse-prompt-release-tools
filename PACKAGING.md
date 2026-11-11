@@ -1,6 +1,6 @@
 # Install the release commands
 
-Use Python 3.10 or later. Keep the source files in one directory, including `pyproject.toml`. The ten release commands use Python's standard library; the package has no required runtime dependencies.
+Use Python 3.10 or later. Keep the source files in one directory, including `pyproject.toml`. The fifteen release commands use Python's standard library; the package has no required runtime dependencies.
 
 ## Build and install a wheel
 
@@ -13,7 +13,7 @@ python3 -m venv .venv-build
 
 python3 -m venv .venv
 .venv/bin/python -m pip install --no-index --no-deps \
-  dist/langfuse_prompt_release_tools-0.5.0a1-py3-none-any.whl
+  dist/langfuse_prompt_release_tools-0.6.0a1-py3-none-any.whl
 ```
 
 Once the build tools are installed, both the wheel build and its installation run without contacting a package index. Windows virtual environments use `Scripts` in place of `bin`.
@@ -30,6 +30,11 @@ Once the build tools are installed, both the wheel build and its installation ru
 | `langfuse-release-dependencies` | `langfuse_release_dependencies.py` | Capture/check the server-resolved dependency closure |
 | `langfuse-release-reconcile` | `reconcile_langfuse_release.py` | Inspect interrupted outcomes without writes |
 | `langfuse-release-adoption` | `langfuse_release_adoption.py` | Validate actual SDK consumer observations |
+| `langfuse-release-bundle` | `langfuse_release_bundle.py` | Package or verify portable original evidence |
+| `langfuse-release-provenance` | `langfuse_release_provenance.py` | Verify independently pinned CI signer identity |
+| `langfuse-release-remote` | `langfuse_release_remote.py` | Verify persisted experiments and typed scores with GETs |
+| `langfuse-release-rollout` | `langfuse_release_rollout.py` | Pin, aggregate and check rollout observation windows |
+| `langfuse-release-capture` | `langfuse_release_capture.py` | Allowlisted JSON sidecar used by the JavaScript helper |
 
 Inspect the arguments before a run:
 
@@ -51,7 +56,7 @@ To create a source distribution with the same prepared build environment:
 .venv-build/bin/python -c 'from setuptools.build_meta import build_sdist; build_sdist("dist")'
 ```
 
-`MANIFEST.in` includes the workflow documents, portable tests, schema-review fixtures and disposable-demo files. These files are available when you unpack the source archive. The wheel installs only the eleven runtime modules, ten commands and package metadata, including license notices. It does not install the demo, tests or schema checker. The release tools are MIT-licensed; `THIRD-PARTY-NOTICES.md` preserves the notice for the derived Compose configuration.
+`MANIFEST.in` includes the workflow documents, portable tests, schema-review fixtures and disposable-demo files. These files are available when you unpack the source archive. The wheel installs only the sixteen runtime modules, fifteen commands and package metadata, including license notices. It does not install the demo, tests or schema checker. The release tools are MIT-licensed; `THIRD-PARTY-NOTICES.md` preserves the notice for the derived Compose configuration.
 
 ## Run the source tests
 
@@ -84,4 +89,4 @@ After installing the wheel into the test environment, run:
 .venv/bin/python tools/smoke_installed.py
 ```
 
-This copies the portable tests to a temporary directory, verifies that imports come from the installed package, runs those tests and checks all five installed entrypoints. It removes inherited Langfuse environment settings from child processes and makes no tenant calls. The source archive includes the skill and guides; the wheel remains limited to runtime modules and metadata.
+This copies the portable tests to a temporary directory, verifies that imports come from the installed package, runs those tests and checks all fifteen installed entrypoints. It removes inherited Langfuse environment settings from child processes and makes no tenant calls. The source archive includes the skill and guides; the wheel remains limited to runtime modules and metadata.

@@ -11,14 +11,17 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 MODULES = ("test_prompt_release", "test_staged_release", "test_evaluation_gate",
            "test_experiment_policy", "test_reconciliation", "test_release_dependencies",
-           "test_release_adoption", "test_release_integration")
+           "test_release_adoption", "test_release_integration", "test_release_bundle", "test_release_provenance",
+           "test_release_remote", "test_release_rollout", "test_release_capture", "test_remote_policy_integration")
 COMMANDS = ("pull", "publish", "verify", "evaluate", "promote", "policy",
-            "import-experiment", "reconcile", "dependencies", "adoption")
+            "import-experiment", "reconcile", "dependencies", "adoption", "bundle", "provenance", "remote", "rollout", "capture")
 
 
 def main():
     env = dict(os.environ)
     env.pop("PYTHONPATH", None)
+    for key in ("RELEASE_PYTHON_PATH", "RELEASE_CAPTURE_MODULE", "RELEASE_PYTHON"):
+        env.pop(key, None)
     for key in list(env):
         if key.startswith("LANGFUSE_"):
             env.pop(key)
@@ -43,7 +46,7 @@ def main():
                                     env=env, check=True, capture_output=True, text=True)
             if "usage:" not in result.stdout.lower():
                 raise RuntimeError("Missing help output: " + command)
-        print("Installed wheel: portable tests and all ten CLI entrypoints passed.")
+        print("Installed wheel: portable tests and all fifteen CLI entrypoints passed.")
 
 
 if __name__ == "__main__":

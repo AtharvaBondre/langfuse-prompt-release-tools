@@ -159,7 +159,7 @@ def _semantics(rows, payloads):
     has_remote = "remote_verification" in report
     if has_remote != ("remote_verification" in values):
         raise ReleaseError("Remote verification evidence must match the evaluation reference.")
-    kwargs = {"dependency_lock": values["dependency_lock"]}
+    kwargs = {"dependency_lock": values["dependency_lock"], "historical": True}
     if has_remote:
         reference = object_fields(report["remote_verification"], ("file", "sha256"), where="remote verification reference")
         if reference["sha256"] != fingerprint(values["remote_verification"]):

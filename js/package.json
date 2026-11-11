@@ -1,0 +1,26 @@
+{
+  "name": "langfuse-release-capture",
+  "version": "0.6.0-alpha.1",
+  "private": true,
+  "description": "Official Langfuse JavaScript SDK capture for the Python release evidence engine",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": "./capture.mjs",
+  "files": [
+    "capture.mjs",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@langfuse/client": "6.1.1"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@langfuse/otel": "6.1.1",
+    "@opentelemetry/sdk-trace-node": "2.12.1"
+  }
+}

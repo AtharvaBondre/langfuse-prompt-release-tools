@@ -24,6 +24,7 @@ from publish_langfuse_prompts import write_report
 
 
 CAPTURE_METHOD = "langfuse_release_adoption.capture_sdk_observation/v1"
+JS_CAPTURE_METHOD = "langfuse_release_adoption.capture_js_sdk_observation/v1"
 
 
 def _utc(value, field):
@@ -81,6 +82,33 @@ def capture_sdk_observation(prompt_client, *, consumer_id, deployment_id, reques
         content, config, fallback = prompt_client.prompt, prompt_client.config, prompt_client.is_fallback
     except AttributeError:
         raise ReleaseError("SDK object is missing returned prompt identity or fallback state.") from None
+    return _capture_value(name, version, prompt_type, content, config, fallback,
+                          sdk_name="langfuse-python", sdk_version=sdk_version,
+                          consumer_id=consumer_id, deployment_id=deployment_id, request_id=request_id,
+                          requested_label=requested_label, request_started_at_utc=request_started_at_utc,
+                          cache_ttl_seconds=cache_ttl_seconds, observed_at_utc=observed_at_utc)
+
+
+def capture_js_observation(prompt_snapshot, *, sdk_version, **metadata):
+    """Normalize the snapshot captured by the JS helper from an actual SDK object.
+
+    The Python bridge cannot authenticate a serialized JS object; provenance
+    must identify a trusted capturing application, just as for Python receipts.
+    """
+    fields = {"name", "version", "type", "prompt", "config", "is_fallback"}
+    if not isinstance(prompt_snapshot, dict) or set(prompt_snapshot) != fields:
+        raise ReleaseError("Expected the exact JavaScript SDK capture snapshot.")
+    if prompt_snapshot["type"] not in ("text", "chat"):
+        raise ReleaseError("Unknown JavaScript prompt type.")
+    return _capture_value(prompt_snapshot["name"], prompt_snapshot["version"], prompt_snapshot["type"],
+                          prompt_snapshot["prompt"], prompt_snapshot["config"], prompt_snapshot["is_fallback"],
+                          sdk_name="langfuse-js", sdk_version=sdk_version, **metadata)
+
+
+def _capture_value(name, version, prompt_type, content, config, fallback, *, sdk_name, sdk_version,
+                   consumer_id, deployment_id, request_id, requested_label, request_started_at_utc,
+                   cache_ttl_seconds, observed_at_utc=None):
+    _identifier(sdk_version, "sdk.version")
     _name(name)
     if type(fallback) is not bool or type(version) is not int or version < 0 or (not fallback and version == 0):
         raise ReleaseError("SDK returned an invalid version or unknown fallback state.")
@@ -91,11 +119,11 @@ def capture_sdk_observation(prompt_client, *, consumer_id, deployment_id, reques
         raise ReleaseError("Observation precedes its application request.")
     ttl = _seconds(cache_ttl_seconds, "cache_ttl_seconds")
     value = {"name": name, "version": version, "type": prompt_type, "prompt": content, "config": config}
-    return {"format_version": 1, "capture_method": CAPTURE_METHOD,
+    return {"format_version": 1, "capture_method": CAPTURE_METHOD if sdk_name == "langfuse-python" else JS_CAPTURE_METHOD,
             "consumer_id": _identifier(consumer_id, "consumer_id"),
             "deployment_id": _identifier(deployment_id, "deployment_id"),
             "request_id": _identifier(request_id, "request_id"),
-            "sdk": {"name": "langfuse-python", "version": sdk_version},
+            "sdk": {"name": sdk_name, "version": sdk_version},
             "requested_label": _label(requested_label),
             "request_started_at_utc": started.isoformat(), "observed_at_utc": observed.isoformat(),
             "cache_ttl_seconds": ttl, "cache_status": "disabled" if ttl == 0 else "sdk_cache_possible",
@@ -154,7 +182,7 @@ def _observations(value):
     seen = set()
     for row in rows:
         if (not isinstance(row, dict) or type(row.get("format_version")) is not int or row["format_version"] != 1 or
-                row.get("capture_method") != CAPTURE_METHOD):
+                row.get("capture_method") not in (CAPTURE_METHOD, JS_CAPTURE_METHOD)):
             raise ReleaseError("Unsupported or missing application SDK observation.")
         for key in ("consumer_id", "deployment_id", "request_id"):
             _identifier(row.get(key), key)
@@ -167,8 +195,9 @@ def _observations(value):
         if type(row.get("is_fallback")) is not bool:
             raise ReleaseError("Observation fallback status must be a boolean.")
         sdk, returned = row.get("sdk"), row.get("returned")
-        if not isinstance(sdk, dict) or sdk.get("name") != "langfuse-python":
-            raise ReleaseError("Observation must record the official Python SDK identity.")
+        expected_sdk = "langfuse-python" if row["capture_method"] == CAPTURE_METHOD else "langfuse-js"
+        if not isinstance(sdk, dict) or sdk.get("name") != expected_sdk:
+            raise ReleaseError("Observation capture method and official SDK identity disagree.")
         _identifier(sdk.get("version"), "sdk.version")
         if not isinstance(returned, dict):
             raise ReleaseError("Observation is missing returned prompt identity.")

@@ -23,3 +23,5 @@ dist/
 .pytest_cache/
 .coverage
 .DS_Store
+node_modules/
+*.tgz

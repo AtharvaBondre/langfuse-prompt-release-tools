@@ -65,3 +65,15 @@ python -m unittest -v test_captured_outputs
 ```
 
 Only the test module imports mocked stage fixtures. The example itself imports runtime helpers and reads local files. Tests demonstrate failed output blocking the gate, passing output allowing promotion in the in-memory service, rejection of stale/malformed captures, and preservation of existing evidence. They do not call Langfuse or a model.
+
+## Remote evidence, JavaScript and rollout windows
+
+`verified_release_demo.py` creates synthetic Python and JavaScript experiments on a disposable loopback server, independently reads persisted cases/scores, imports them under format 2 policy, and exercises cached/fresh/fallback access plus a two-consumer time window. Install `.[example]` and run `npm ci --prefix js --ignore-scripts` first.
+
+```sh
+.venv/bin/python examples/verified_release_demo.py \
+  --host http://127.0.0.1:13830 --project-id YOUR_DISPOSABLE_PROJECT_ID \
+  --out-dir /private/new-evidence-directory --disposable-local
+```
+
+Supply only that disposable project's keys via the environment. This example writes synthetic prompts and scores, makes no model calls, and does not send data to a cloud tenant. Do not point it at a customer or production instance. See the release validation record for the exact supported SDK/server matrix.

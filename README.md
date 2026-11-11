@@ -2,7 +2,7 @@
 
 Test a staged prompt, promote its label, then check what the application actually used.
 
-**Independent project by Atharva Bondre.** Version **0.5.0a1** adds a release verification workflow around Langfuse's official SDK, experiments and prompt resolver. It grows the [original Gist](https://gist.github.com/AtharvaBondre/3ad9d0654b5450d1e007728f67047fa0); it is not an official Langfuse product.
+**Independent project by Atharva Bondre.** Version **0.6.0a1** adds a release verification workflow around Langfuse's official SDK, experiments and prompt resolver. It grows the [original Gist](https://gist.github.com/AtharvaBondre/3ad9d0654b5450d1e007728f67047fa0); it is not an official Langfuse product.
 
 ## What this adds
 
@@ -14,11 +14,16 @@ Langfuse supplies prompt management, experiments, SDKs, CLI, MCP and skills. Thi
 - Reconcile interrupted operations by GET, retaining unknown creation outcomes without automatically retrying them.
 - Record actual application SDK accesses after promotion, distinguishing a stale cached prompt or fallback from an observed adoption.
 
-These are unsigned records from a trusted runner. They do not authenticate execution, guarantee better answers or prove that an entire fleet has adopted a release.
+- Package original evidence bytes in a portable bundle and verify an independently trusted GitHub CI attestation.
+- Confirm exported experiments and every required typed score through bounded, project-scoped API reads.
+- Capture official Python and JavaScript SDK objects through a shared validation contract.
+- Measure consumer/version coverage across a predeclared rollout window, rejecting replay and mixed releases.
+
+Local records are unsigned unless a separately trusted CI attestation is verified. CI provenance identifies the builder and artifact; it does not guarantee model quality or coverage of all application traffic.
 
 ## Install
 
-The ten CLI commands require Python 3.10+ and have no mandatory runtime dependencies. The optional SDK example requires Python 3.11+.
+The fifteen CLI commands require Python 3.10+ and have no mandatory runtime dependencies. The optional SDK example requires Python 3.11+.
 
 ```bash
 git clone https://github.com/AtharvaBondre/langfuse-prompt-release-tools.git
@@ -90,7 +95,9 @@ Reconciliation makes no mutation. It reports completed, pending, conflicting or 
 
 ## Validation and limits
 
-The [validation record](docs/validation.md) separates offline tests, installed-package tests and the real local Langfuse 4.78.0 / Python SDK 5.2.0 integration. The local example checks failed evaluation, nested dependency drift, response-loss recovery and actual cached/fresh SDK accesses. It makes no model-quality or remote trace-persistence claim.
+The [validation record](docs/validation.md) separates offline tests, installed-package checks, signed CI artifact verification and real local SDK/server integration. The [verified release example](examples/verified_release_demo.py) checks persisted cases and typed scores, failing/passing JavaScript experiments, nested dependencies, cached/fresh accesses and a two-consumer rollout window. It makes no model-quality claim.
+
+Start with [0.6 migration](docs/migration-v06.md), [portable evidence](docs/portable-evidence.md), [remote persistence](docs/remote-persistence.md), the [JavaScript helper](js/README.md) and [rollout observations](docs/rollout-observation.md).
 
 Langfuse's API has no release transaction or compare-and-swap across this workflow. Fresh checks cannot eliminate concurrent-writer races. Coordinate writers. Dependency tags outside the supported documented syntax fail closed; this tool uses the server resolver and does not implement another prompt renderer. An adoption receipt covers the instrumented accesses supplied to it.
 

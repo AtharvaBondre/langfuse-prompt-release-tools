@@ -72,7 +72,7 @@ def run_experiment(sdk, manifest, stage_path, result_path, capture_path, *, depe
         return json.loads(prompt.compile(**item["input"]))
 
     def answer_exact(*, output, expected_output, **kwargs):
-        return Evaluation(name="answer-exact", value=output == expected_output)
+        return Evaluation(name="answer-exact", value=output == expected_output, data_type="BOOLEAN")
 
     started = time.monotonic()
     result = RunnerContext(client=sdk).run_experiment(
@@ -80,7 +80,8 @@ def run_experiment(sdk, manifest, stage_path, result_path, capture_path, *, depe
         evaluators=[answer_exact], max_concurrency=1)
 
     def evaluation(row):
-        return {"name": row.name, "value": row.value}
+        return {"name": row.name, "value": row.value,
+                **({"data_type": row.data_type} if row.data_type is not None else {})}
 
     # Explicit projection of the SDK's result to the public Action v1 format.
     # This does not assert that a hosted GitHub Action ran or traces persisted.

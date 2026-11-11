@@ -81,12 +81,24 @@ def validate_execution(value):
 
 
 def validate_policy(policy):
-    object_fields(policy, ("format_version", "id", "producer", "dataset", "execution", "targets", "checks", "remote_export"), where="policy")
-    if type(policy["format_version"]) is not int or policy["format_version"] != 1:
-        raise ReleaseError("Expected policy format_version=1.")
+    object_fields(policy, ("format_version", "id", "producer", "dataset", "execution", "targets", "checks", "remote_export"), ("remote_verification",), where="policy")
+    if type(policy["format_version"]) is not int or policy["format_version"] not in (1, 2):
+        raise ReleaseError("Expected policy format_version=1 or 2.")
+    if "remote_verification" in policy and policy["format_version"] != 2:
+        raise ReleaseError("Built-in remote verification requires policy format_version=2.")
+    if policy["format_version"] == 2:
+        if (policy["remote_export"] == "required") != ("remote_verification" in policy):
+            raise ReleaseError("Policy v2 remote-required releases need an independent remote verification policy.")
+        if "remote_verification" in policy:
+            remote = object_fields(policy["remote_verification"], ("project_id", "dataset_kind", "max_age_seconds"), where="remote verification policy")
+            text(remote["project_id"], "remote project identity")
+            if remote["dataset_kind"] not in ("local", "langfuse"):
+                raise ReleaseError("Remote dataset kind must be local or langfuse.")
+            if type(remote["max_age_seconds"]) is not int or not 0 < remote["max_age_seconds"] <= 3600:
+                raise ReleaseError("Remote verification age must be 1–3600 seconds.")
     text(policy["id"], "policy.id")
     producer = object_fields(policy["producer"], ("kind", "schema_version", "script_path"), where="producer")
-    if producer["kind"] not in ("langfuse-experiment-action", "langfuse-python-sdk") or producer["schema_version"] != "v1":
+    if producer["kind"] not in ("langfuse-experiment-action", "langfuse-python-sdk", "langfuse-javascript-sdk") or producer["schema_version"] != "v1":
         raise ReleaseError("Only Action/SDK producers using Langfuse result_json v1 are supported.")
     text(producer["script_path"], "producer.script_path")
     dataset = object_fields(policy["dataset"], ("id", "name", "version", "cases"), ("schema_sha256",), where="dataset")

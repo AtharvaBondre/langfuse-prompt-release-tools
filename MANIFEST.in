@@ -26,3 +26,8 @@ include test_release_dependencies.py test_release_adoption.py test_release_integ
 recursive-include examples *.py *.md
 include .gitignore
 recursive-include .github *.yml *.md
+
+include test_release_bundle.py test_release_provenance.py test_release_remote.py
+include test_release_rollout.py test_release_capture.py test_remote_policy_integration.py
+recursive-include js *.mjs *.json *.md
+prune js/node_modules

@@ -250,7 +250,7 @@ def _validate_capture(capture, snapshot, stage, binding, result, *, dependency_l
     completion = object_fields(capture["completion"], ("local", "remote_export"), where="completion")
     if completion["local"] != "completed" or completion["remote_export"] not in ("confirmed", "failed", "not_attempted", "unconfirmed"):
         raise ReleaseError("Local experiment did not complete, or export outcome is invalid.")
-    if policy["remote_export"] == "required" and completion["remote_export"] != "confirmed":
+    if policy["format_version"] == 1 and policy["remote_export"] == "required" and completion["remote_export"] != "confirmed":
         raise ReleaseError("Pinned policy requires confirmed remote export, separately from local completion.")
     if not isinstance(capture["items"], list):
         raise ReleaseError("Capture items must be an array.")
@@ -309,7 +309,7 @@ def _check_score(score, check):
     return {"id": check["id"], "value": value, "passed": passed}
 
 
-def _derive(snapshot, stage, source, capture, *, dependency_lock=None):
+def _derive(snapshot, stage, source, capture, *, dependency_lock=None, remote_receipt=None, verification_time=None):
     binding = snapshot_policy(snapshot, required=True)
     policy = binding["policy"]
     _validate_capture(capture, snapshot, stage, binding, source, dependency_lock=dependency_lock)
@@ -341,24 +341,39 @@ def _derive(snapshot, stage, source, capture, *, dependency_lock=None):
                             next(check["passed"] for check in normalized[case]["checks"] if check["id"] == name)
                             for case in target["case_ids"])} for name in sorted(checks)]})
     passed = script["status"] == "passed" and all(check["passed"] for item in results for check in item["checks"])
-    return {"format_version": 2, "mode": "langfuse_experiment_evaluation", "host": snapshot["host"],
+    report = {"format_version": 2, "mode": "langfuse_experiment_evaluation", "host": snapshot["host"],
             "status": "passed" if passed else "failed", "snapshot_sha256": fingerprint(snapshot),
             "policy_sha256": binding["sha256"], "required_checks": sorted(checks), "results": results,
             "dependency_lock_sha256": capture.get("dependency_lock", {}).get("sha256"),
             "cases": [normalized[name] for name in sorted(normalized)],
             "producer": copy.deepcopy(policy["producer"]), "completion": copy.deepcopy(capture["completion"]),
             "script_status": script["status"], "run_evaluations": copy.deepcopy(script["experiment_result"]["run_evaluations"])}
+    remote_policy = policy.get("remote_verification")
+    if remote_policy is not None:
+        if remote_receipt is None:
+            raise ReleaseError("Policy requires a verified remote persistence receipt; caller confirmation is insufficient.")
+        from langfuse_release_remote import make_remote_expectation, validate_remote_receipt
+        expectation = make_remote_expectation(source, capture, policy, host=snapshot["host"],
+                                              project_id=remote_policy["project_id"], dataset_kind=remote_policy["dataset_kind"])
+        validate_remote_receipt(remote_receipt, expectation, max_age_seconds=remote_policy["max_age_seconds"], now=verification_time)
+        report["remote_verification_sha256"] = fingerprint(remote_receipt)
+    elif remote_receipt is not None:
+        raise ReleaseError("Remote evidence cannot select a project or policy after execution.")
+    return report
 
 
-def import_experiment(manifest_path, stage_report_path, result_path, capture_path, *, report_name=None):
+def import_experiment(manifest_path, stage_report_path, result_path, capture_path, *, report_name=None, remote_report_path=None):
     manifest_path, snapshot = load_snapshot(manifest_path)
     stage_path, stage = read_object(stage_report_path, "stage report")
     source_path, source = read_object(result_path, "Action results")
     capture_path, capture = read_object(capture_path, "execution capture")
-    report = _derive(snapshot, stage, source, capture)
+    remote_path, remote = read_object(remote_report_path, "remote persistence receipt") if remote_report_path is not None else (None, None)
+    report = _derive(snapshot, stage, source, capture, remote_receipt=remote)
     report.update({"stage_report": {"file": str(stage_path), "sha256": fingerprint(stage)},
                    "source_results": {"file": str(source_path), "sha256": fingerprint(source)},
                    "execution_capture": {"file": str(capture_path), "sha256": fingerprint(capture)}})
+    if remote is not None:
+        report["remote_verification"] = {"file": str(remote_path), "sha256": fingerprint(remote)}
     if report_name is None:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         report_name = f"experiment-{stamp}-{uuid.uuid4().hex[:8]}.json"
@@ -372,7 +387,7 @@ def import_experiment(manifest_path, stage_report_path, result_path, capture_pat
     return report
 
 
-def validate_experiment_artifacts(report, snapshot, stage, source, capture, *, dependency_lock=None):
+def validate_experiment_artifacts(report, snapshot, stage, source, capture, *, dependency_lock=None, remote_receipt=None, historical=False):
     """Validate preserved artifact objects; an explicit lock avoids filesystem reads.
 
     Bundles use this seam after checking their original file bytes. This does not
@@ -389,7 +404,14 @@ def validate_experiment_artifacts(report, snapshot, stage, source, capture, *, d
             raise ReleaseError(f"{field} changed after import.")
     if dependency_lock is not None and "dependency_lock" not in capture:
         raise ReleaseError("An unbound dependency lock cannot be attached to old execution evidence.")
-    expected = _derive(snapshot, stage, source, capture, dependency_lock=dependency_lock)
+    if "remote_verification" in report:
+        reference = object_fields(report["remote_verification"], ("file", "sha256"), where="remote receipt reference")
+        if remote_receipt is None or reference["sha256"] != fingerprint(remote_receipt):
+            raise ReleaseError("Remote receipt changed or was omitted after experiment import.")
+    elif remote_receipt is not None:
+        raise ReleaseError("Unbound remote evidence cannot be added to an old receipt.")
+    expected = _derive(snapshot, stage, source, capture, dependency_lock=dependency_lock, remote_receipt=remote_receipt,
+                       verification_time=timestamp(report["recorded_at_utc"], "historical evaluation time").isoformat() if historical else None)
     for field, value in expected.items():
         if fingerprint(report.get(field)) != fingerprint(value):
             raise ReleaseError(f"Experiment receipt {field} disagrees with source evidence and pinned policy.")
@@ -411,7 +433,11 @@ def validate_experiment(report_path, snapshot, stage):
         reference = object_fields(report.get(field), ("file", "sha256"), where=field)
         text(reference["file"], f"{field}.file")
         _, loaded[field] = read_object(reference["file"], description)
-    return validate_experiment_artifacts(report, snapshot, stage, loaded["source_results"], loaded["execution_capture"])
+    remote = None
+    if "remote_verification" in report:
+        reference = object_fields(report["remote_verification"], ("file", "sha256"), where="remote receipt reference")
+        _, remote = read_object(reference["file"], "remote persistence receipt")
+    return validate_experiment_artifacts(report, snapshot, stage, loaded["source_results"], loaded["execution_capture"], remote_receipt=remote)
 
 
 def main():
@@ -420,10 +446,11 @@ def main():
     parser.add_argument("--stage-report", required=True)
     parser.add_argument("--results", required=True, help="Official Action result_json v1 file.")
     parser.add_argument("--capture", required=True, help="Execution-time prompt/dataset/model capture.")
+    parser.add_argument("--remote-report", help="Verified remote persistence receipt for a policy v2 remote-required release.")
     parser.add_argument("--report", help="New receipt filename inside reports/.")
     args = parser.parse_args()
     try:
-        report = import_experiment(args.manifest, args.stage_report, args.results, args.capture, report_name=args.report)
+        report = import_experiment(args.manifest, args.stage_report, args.results, args.capture, report_name=args.report, remote_report_path=args.remote_report)
         print(f"Experiment evidence: {report['status']}")
         print(f"Report: {Path(args.manifest).resolve().parent / 'reports' / report['report_file']}")
     except (ReleaseError, OSError, ValueError) as exc:

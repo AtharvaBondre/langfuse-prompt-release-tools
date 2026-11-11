@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "langfuse-prompt-release-tools"
-version = "0.5.0a1"
+version = "0.6.0a1"
 description = "Reviewed prompt snapshots, staged versions, evidence checks and explicit label promotion"
 readme = "README.md"
 license = "MIT"
@@ -35,6 +35,11 @@ langfuse-release-import-experiment = "import_langfuse_experiment:main"
 langfuse-release-reconcile = "reconcile_langfuse_release:main"
 langfuse-release-dependencies = "langfuse_release_dependencies:main"
 langfuse-release-adoption = "langfuse_release_adoption:main"
+langfuse-release-bundle = "langfuse_release_bundle:main"
+langfuse-release-provenance = "langfuse_release_provenance:main"
+langfuse-release-remote = "langfuse_release_remote:main"
+langfuse-release-rollout = "langfuse_release_rollout:main"
+langfuse-release-capture = "langfuse_release_capture:main"
 
 [project.optional-dependencies]
 example = ["langfuse==5.2.0; python_version >= '3.11'"]
@@ -64,4 +69,9 @@ py-modules = [
   "reconcile_langfuse_release",
   "langfuse_release_dependencies",
   "langfuse_release_adoption",
+  "langfuse_release_bundle",
+  "langfuse_release_provenance",
+  "langfuse_release_remote",
+  "langfuse_release_rollout",
+  "langfuse_release_capture",
 ]
