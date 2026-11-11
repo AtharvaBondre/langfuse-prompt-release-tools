@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MODULES = ("test_prompt_release", "test_staged_release", "test_evaluation_gate",
            "test_experiment_policy", "test_reconciliation", "test_release_dependencies",
            "test_release_adoption", "test_release_integration", "test_release_bundle", "test_release_provenance",
-           "test_release_remote", "test_release_rollout", "test_release_capture", "test_remote_policy_integration")
+           "test_release_remote", "test_release_rollout", "test_release_capture", "test_remote_policy_integration", "test_sdk_result_fixtures")
 COMMANDS = ("pull", "publish", "verify", "evaluate", "promote", "policy",
             "import-experiment", "reconcile", "dependencies", "adoption", "bundle", "provenance", "remote", "rollout", "capture")
 
@@ -30,6 +30,7 @@ def main():
         destination = Path(directory)
         for module in MODULES:
             shutil.copyfile(ROOT / (module + ".py"), destination / (module + ".py"))
+        shutil.copytree(ROOT / "tests/fixtures", destination / "tests/fixtures")
         probe = subprocess.run(
             [sys.executable, "-c", "import langfuse_release_common as m; print(m.__file__)"],
             cwd=destination, env=env, check=True, capture_output=True, text=True)

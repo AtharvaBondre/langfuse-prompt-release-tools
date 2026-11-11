@@ -1,6 +1,6 @@
 # Install the release commands
 
-Use Python 3.10 or later. Keep the source files in one directory, including `pyproject.toml`. The fifteen release commands use Python's standard library; the package has no required runtime dependencies.
+Use Python 3.10 or later. Keep the source files in one directory, including `pyproject.toml`. The fifteen release commands use Python's standard library; the Python package has no required runtime dependencies. Signature verification additionally requires the official GitHub CLI (`gh`). The separate JavaScript helper requires Node 22+ and its locked SDK package.
 
 ## Build and install a wheel
 

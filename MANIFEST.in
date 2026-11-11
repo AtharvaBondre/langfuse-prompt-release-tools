@@ -31,3 +31,7 @@ include test_release_bundle.py test_release_provenance.py test_release_remote.py
 include test_release_rollout.py test_release_capture.py test_remote_policy_integration.py
 recursive-include js *.mjs *.json *.md
 prune js/node_modules
+
+include test_sdk_result_fixtures.py
+recursive-include tests/fixtures *.json *.md *.txt
+include tests/fixtures/sdk-results/LICENSE.experiment-action

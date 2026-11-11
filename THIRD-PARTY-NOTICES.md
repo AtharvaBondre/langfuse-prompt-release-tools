@@ -31,3 +31,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Langfuse Experiment Action result schema
+
+`tests/fixtures/sdk-results/result-json.v1.schema.json` preserves the official Action v1.0.12 schema at commit `c7c4efe` byte-for-byte. Its MIT license and copyright notice are retained in `tests/fixtures/sdk-results/LICENSE.experiment-action`. The fixture provenance file records the complete upstream revision, source URL and content hash. The two SDK result fixtures contain only this project's synthetic local test data.
