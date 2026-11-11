@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import evaluate_langfuse_release as evaluation
 import import_langfuse_experiment as adapter
 import langfuse_release_common as common
+import langfuse_release_dependencies as dependencies
 import langfuse_release_policy as policy_module
 import promote_langfuse_prompts as promotion
 import publish_langfuse_prompts as publish
@@ -50,14 +51,25 @@ class ExperimentPolicyTests(unittest.TestCase):
         binding = policy_module.pin_policy(manifest, path)
         stage = publish.release(api, manifest, apply=True, report_name="stage.json")
         stage_path = manifest.parent / "reports" / stage["report_file"]
+        # Exercise the real dependency-lock builder against an in-memory leaf
+        # resolver. The fixture has no remote service and no composed children.
+        def resolved(name, *, version):
+            return {**api.get(name, version=version), "resolutionGraph": None}
+        api.get_resolved = resolved
+        _, snapshot = publish.load_snapshot(manifest)
+        lock = dependencies.build_dependency_lock(api, snapshot, stage,
+                                                  consumer={"sdk": "synthetic", "compiler": "synthetic"})
+        lock_path = manifest.parent / "synthetic-lock.json"
+        lock_path.write_text(json.dumps(lock))
         dataset = adapter._dataset_identity(policy)
-        capture = adapter.start_capture(manifest, stage_path, dataset=dataset, execution=policy["execution"])
+        capture = adapter.start_capture(manifest, stage_path, dataset=dataset, execution=policy["execution"],
+                                        dependency_lock_path=lock_path)
         items = []
         for case in policy["dataset"]["cases"]:
             case_id = case["id"]
             for name in names:
                 adapter.capture_prompt(capture, item_id=case_id, requested_name=name, requested_version=8,
-                                       prompt=SimpleNamespace(name=name, version=8))
+                                       prompt=SimpleNamespace(**api.get(name, version=8)))
             items.append({"item": {"id": case_id, "input": {"question": case_id}, "expected_output": {"answer": case_id}},
                           "output": {"answer": case_id}, "evaluations": [
                               {"name": "valid_json", "value": True}, {"name": "coverage", "value": 1.0}]})
@@ -71,7 +83,7 @@ class ExperimentPolicyTests(unittest.TestCase):
         capture_path = manifest.parent / "synthetic-capture.json"
         capture_path.write_text(json.dumps(capture))
         backend.requests.clear()
-        return api, backend, manifest, stage_path, result_path, capture_path, source, capture, binding
+        return api, backend, manifest, stage_path, result_path, capture_path, source, capture, binding, lock_path
 
     def save(self, result_path, capture_path, source, capture):
         # Deliberately rehash mutated fixtures to exercise semantic validation, not only digests.
@@ -88,7 +100,7 @@ class ExperimentPolicyTests(unittest.TestCase):
         api, backend, manifest, stage_path = values[:4]
         backend.requests.clear()
         with self.assertRaises((common.ReleaseError, OSError, ValueError)):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, evaluation_report=report_path)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, evaluation_report=report_path, dependency_lock=values[9])
         self.assertEqual([], backend.requests)
 
     def test_import_passes_exact_policy_targets_cases_and_scores(self):
@@ -100,7 +112,7 @@ class ExperimentPolicyTests(unittest.TestCase):
         self.assertEqual(2, len(report["cases"]))
         self.assertEqual(2, len(report["results"]))
         self.assertEqual(values[8]["sha256"], report["policy_sha256"])
-        result = promotion.promote(values[0], values[2], values[3], label="production", apply=True, evaluation_report=values[-1])
+        result = promotion.promote(values[0], values[2], values[3], label="production", apply=True, evaluation_report=values[-1], dependency_lock=values[9])
         self.assertEqual("verified", result["status"])
         self.assertEqual(2, len(values[1].patches))
 
@@ -137,8 +149,21 @@ class ExperimentPolicyTests(unittest.TestCase):
         for options in ({"require_evaluation": False, "allow_structural_only": True},
                         {"require_evaluation": False, "allow_structural_only": True, "evaluation_report": values[4]}):
             with self.subTest(options=options), self.assertRaises(common.ReleaseError):
-                promotion.promote(values[0], values[2], values[3], label="production", apply=True, **options)
+                promotion.promote(values[0], values[2], values[3], label="production", apply=True, dependency_lock=values[9], **options)
             self.assertEqual([], values[1].requests)
+
+    def test_pinned_policy_blocks_promotion_without_its_dependency_lock(self):
+        values = self.imported()
+        with self.assertRaisesRegex(common.ReleaseError, "requires the dependency lock"):
+            promotion.promote(values[0], values[2], values[3], label="production", apply=True,
+                              evaluation_report=values[-1])
+        self.assertEqual([], values[1].requests)
+
+    def test_pinned_policy_cannot_bypass_evaluation_with_direct_publication(self):
+        values = self.prepare()
+        with self.assertRaisesRegex(common.ReleaseError, "must stage and pass evaluation"):
+            publish.release(values[0], values[2], apply=True, stage=False, allow_direct_release=True)
+        self.assertEqual([], values[1].requests)
 
     def test_pinned_policy_blocks_legacy_recorder_and_receipt(self):
         values = self.prepare()
@@ -352,31 +377,17 @@ class ExperimentPolicyTests(unittest.TestCase):
             values[5].write_text(json.dumps(capture))
         values[1].on_patch = change_after_first
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(values[0], values[2], values[3], label="production", apply=True, evaluation_report=values[-1])
+            promotion.promote(values[0], values[2], values[3], label="production", apply=True, evaluation_report=values[-1], dependency_lock=values[9])
         self.assertEqual(1, len(values[1].patches))
         self.assertIn("production", values[1].versions["first"][8]["labels"])
         self.assertIn("production", values[1].versions["second"][7]["labels"])
 
     def dependency_capture(self):
-        # This tiny fixture supplies a no-dependency lock; no server is contacted.
-        from langfuse_release_dependencies import prompt_sha256
         values = self.prepare()
-        manifest, stage_path = values[2:4]
-        _, snapshot = publish.load_snapshot(manifest)
-        stage = json.loads(stage_path.read_text())
-        actual = {"name": "example", "version": 8, "type": "text",
-                  "prompt": "Answer {{question}} with a concrete example.", "config": {}}
-        hashed = prompt_sha256(actual)
-        lock = {"format_version": 1, "mode": "dependency_lock", "status": "verified",
-                "host": snapshot["host"], "snapshot_sha256": common.fingerprint(snapshot),
-                "stage_report_sha256": common.fingerprint(stage), "consumer": {"sdk": "synthetic", "compiler": "synthetic"},
-                "roots": [{"name": "example", "version": 8, "raw_sha256": hashed, "resolved_sha256": hashed,
-                           "graph": {"root": {"id": None, "name": "example", "version": 8}, "dependencies": {}}, "nodes": []}],
-                "recorded_at_utc": values[8]["pinned_at_utc"]}
-        lock["evidence_sha256"] = common.fingerprint(lock)
-        lock_path = manifest.parent / "synthetic-lock.json"; lock_path.write_text(json.dumps(lock))
         policy = values[8]["policy"]
-        capture = adapter.start_capture(manifest, stage_path, dataset=adapter._dataset_identity(policy),
+        actual = copy.deepcopy(values[1].versions["example"][8])
+        lock_path = values[9]
+        capture = adapter.start_capture(values[2], values[3], dataset=adapter._dataset_identity(policy),
                                         execution=policy["execution"], dependency_lock_path=lock_path)
         self._dependency_fixture = (values, lock_path, actual, capture)
         return values, lock_path, actual, capture
