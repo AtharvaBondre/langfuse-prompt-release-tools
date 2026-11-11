@@ -15,13 +15,13 @@ The six 0.5 capabilities remain shipped: independent required-test policy, offic
 
 This adds release evidence and checks around official Langfuse services. It does not duplicate their compiler, experiment engine, general CLI, MCP or skills. Tests do not establish broader feature superiority or production adoption.
 
-## Outstanding operational step from the original plan
+## Deferred real-application pilot
 
-The original real-application pilot remains open. The current integration proof uses synthetic applications and does not include feedback from an existing deployed consumer. Select the application/repository and test environment, instrument its actual accesses, measure overhead and choose rollout thresholds from that evidence. No customer or production deployment was performed as part of this personal repository release.
+The maintainer explicitly deferred the real-application pilot on 11 November 2026 because no application/test environment is available yet. The current integration proof uses synthetic applications and does not include feedback from an existing deployed consumer. Select the application/repository and test environment, instrument its actual accesses, measure overhead and choose rollout thresholds from that evidence. No customer or production deployment was performed as part of this personal repository release.
 
 ## Next implementation order
 
-These are **new, unimplemented work items**, beyond the shipped capabilities. The pilot above is carried forward, not counted as completed.
+These are **new, unimplemented work items**, beyond the shipped capabilities. The pilot above is explicitly deferred, not counted as completed.
 
 ### 1. Enforce signer policy at the promotion boundary
 

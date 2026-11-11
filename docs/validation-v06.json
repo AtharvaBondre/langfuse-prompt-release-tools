@@ -397,5 +397,5 @@
     "Only the two listed server versions tested, not every intervening release",
     "POSIX modes do not establish Windows ACL privacy"
   ],
-  "outstanding_operational_step": "Original real-application pilot remains open: select application/repository and test environment; current live checks use synthetic applications."
+  "outstanding_operational_step": "Real-application pilot explicitly deferred by the maintainer on 2026-11-11; no application/test environment exists yet. Not counted as completed."
 }

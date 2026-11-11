@@ -15,7 +15,7 @@ Recorded **11 November 2026** for **0.6.0a1**, after all four planned additions 
 
 All thirteen implementation CI jobs are green at `4117f43`: [tests](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/actions/runs/43025012317), [signed evidence](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/actions/runs/43025012383), [live SDKs](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/actions/runs/43025012274). Counts overlap across environments; they are not independent production scenarios. Check workflow runs for the release commit when upgrading.
 
-The original operational pilot in an existing real application remains open; it requires selecting the application and test environment. The implementation/integration gates above are complete, but synthetic examples do not supply production-consumer feedback.
+The maintainer explicitly deferred the operational pilot on 11 November 2026 because no existing application/test environment is available yet. The implementation/integration gates above are complete, but synthetic examples do not supply production-consumer feedback.
 
 ## Tested compatibility
 
