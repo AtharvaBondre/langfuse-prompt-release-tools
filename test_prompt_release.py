@@ -123,7 +123,12 @@ class PromptReleaseTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory(prefix="langfuse-offline-")
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-        self.env = patch.dict(os.environ, {"LANGFUSE_PUBLIC_KEY": "public-test", "LANGFUSE_SECRET_KEY": "secret-test"}, clear=True)
+        # OpenSSL on Windows needs these OS paths even for offline TLS setup.
+        # Keep credentials/proxy settings isolated without breaking that setup.
+        test_env = {key: value for key, value in os.environ.items()
+                    if key.upper() in {"SYSTEMROOT", "WINDIR"}}
+        test_env.update({"LANGFUSE_PUBLIC_KEY": "public-test", "LANGFUSE_SECRET_KEY": "secret-test"})
+        self.env = patch.dict(os.environ, test_env, clear=True)
         self.env.start(); self.addCleanup(self.env.stop)
         for target in ["socket.socket.connect", "urllib.request.urlopen", "urllib.request.OpenerDirector.open"]:
             blocker = patch(target, side_effect=AssertionError("Real network disabled"))

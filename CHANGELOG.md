@@ -11,6 +11,7 @@ First independent repository release, based on the public 0.3 Gist.
 - Classify excessive JSON nesting in a response after a write as an uncertain outcome.
 - Add a captured-output example with computed JSON/answer checks, binding validation and private result files.
 - Add regression checks, packaging CI, a repository skill, migration guidance and a source-backed expansion plan.
+- Preserve required Windows OS paths in isolated offline test environments so SSL context setup can run.
 
 These defaults change behavior. See [migration from the Gist](docs/migration-v03.md). There are no new runtime dependencies.
 
