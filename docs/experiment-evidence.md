@@ -163,7 +163,9 @@ compatibility; such a receipt has `dependency_lock_sha256: null`. It cannot clai
 resolved-content verification. The integrated pinned-policy promotion workflow
 requires a bound dependency lock.
 
-A failure at any point creates no automatic retry, label move or remote write.
-Passing evidence proves the configured cases against their recorded environment;
+Policy pinning, capture helpers and import perform no remote writes. A failed
+promotion can have already moved earlier labels in its batch; its report
+preserves those outcomes and does not retry automatically. Passing evidence
+proves the configured cases against their recorded environment;
 it does not establish application adoption after a release. That is checked
 separately using runtime adoption observations.
