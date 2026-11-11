@@ -1,0 +1,65 @@
+name: Live SDK compatibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'codex/**']
+    paths:
+      - '**.py'
+      - 'js/**'
+      - 'pyproject.toml'
+      - 'compose.demo.json'
+      - '.github/workflows/live-sdk.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-sdk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  live-sdk:
+    name: Langfuse ${{ matrix.server }} / Linux AMD64 / Python 3.14 / Node 22
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        server: ['4.78.0', '4.59.0']
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: js/package-lock.json
+      - name: Install pinned SDK examples
+        run: |
+          python -m pip install '.[example]'
+          npm ci --prefix js --ignore-scripts
+      - name: Run synthetic live SDK/server checks
+        run: >-
+          python tools/run_live_ci.py --version '${{ matrix.server }}'
+          --private-dir '${{ runner.temp }}/live-sdk-private-${{ matrix.server }}'
+          --public-dir '${{ runner.temp }}/live-sdk-public-${{ matrix.server }}'
+      - name: Ensure own stack is removed
+        if: always()
+        run: >-
+          python tools/run_live_ci.py --cleanup
+          --private-dir '${{ runner.temp }}/live-sdk-private-${{ matrix.server }}'
+          --public-dir '${{ runner.temp }}/live-sdk-public-${{ matrix.server }}'
+      - name: Upload only sanitized status and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: live-sdk-${{ matrix.server }}-linux-amd64
+          path: |
+            ${{ runner.temp }}/live-sdk-public-${{ matrix.server }}/summary.json
+            ${{ runner.temp }}/live-sdk-public-${{ matrix.server }}/sanitized.log
+          if-no-files-found: warn
+          retention-days: 7
