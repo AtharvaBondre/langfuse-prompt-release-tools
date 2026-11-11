@@ -142,8 +142,10 @@ def verify_provenance(artifact_path, trust_policy_path, *, attestation_path=None
         raise ReleaseError("Install the official GitHub CLI to verify CI provenance.")
     repo_url = "https://github.com/" + policy["repository"]
     san = f"{repo_url}/{policy['workflow']}@{policy['source_ref']}"
+    # gh makes --cert-identity and --signer-workflow mutually exclusive. The
+    # exact certificate SAN below already pins the repository/workflow/ref.
     command = [executable, "attestation", "verify", str(artifact_path), "--bundle", str(attestation_path),
-               "--repo", policy["repository"], "--signer-workflow", f"{policy['repository']}/{policy['workflow']}",
+               "--repo", policy["repository"],
                "--cert-identity", san, "--cert-oidc-issuer", policy["oidc_issuer"],
                "--source-digest", policy["source_commit"], "--source-ref", policy["source_ref"],
                "--signer-digest", policy["source_commit"], "--deny-self-hosted-runners",

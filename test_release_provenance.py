@@ -57,10 +57,13 @@ class ProvenanceTests(unittest.TestCase):
         self.assertEqual(["/trusted/bin/gh", "attestation", "verify"], command[:3])
         for flag, value in (("--repo", "owner/repo"), ("--source-digest", "a" * 40), ("--signer-digest", "a" * 40),
                             ("--source-ref", "refs/heads/main"), ("--cert-oidc-issuer", self.policy["oidc_issuer"]),
-                            ("--bundle", str(self.attestation)), ("--signer-workflow", "owner/repo/.github/workflows/release.yml")):
+                            ("--bundle", str(self.attestation))):
             self.assertEqual(value, command[command.index(flag) + 1])
         self.assertIn("--deny-self-hosted-runners", command)
-        self.assertIn("--cert-identity", command)
+        self.assertEqual("https://github.com/owner/repo/.github/workflows/release.yml@refs/heads/main",
+                         command[command.index("--cert-identity") + 1])
+        identity_flags = {"--cert-identity", "--cert-identity-regex", "--signer-repo", "--signer-workflow"}
+        self.assertEqual({"--cert-identity"}, set(command) & identity_flags)
         self.assertFalse(kwargs["shell"])
         self.assertEqual(60, kwargs["timeout"])
 
