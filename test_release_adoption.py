@@ -30,9 +30,12 @@ class AdoptionTests(unittest.TestCase):
     def setUp(self):
         self.api = ResolverFixture()
         self.lock = self.api.lock()
+        self.lock["recorded_at_utc"] = (NOW - timedelta(seconds=30)).isoformat()
+        self.lock["evidence_sha256"] = fingerprint({key: value for key, value in self.lock.items() if key != "evidence_sha256"})
         self.promotion = {"format_version": 2, "mode": "promote", "apply": True, "status": "verified",
                           "host": self.api.host, "label": "production", "snapshot_sha256": self.lock["snapshot_sha256"],
                           "stage_report": {"sha256": self.lock["stage_report_sha256"]},
+                          "dependency_lock_sha256": fingerprint(self.lock),
                           "completed_at_utc": (NOW - timedelta(seconds=20)).isoformat(),
                           "results": [{"name": "root", "target_version": 2, "status": "verified"}]}
         model = types.SimpleNamespace(TextPromptClient=TextPromptClient, ChatPromptClient=ChatPromptClient)
@@ -207,7 +210,19 @@ class AdoptionTests(unittest.TestCase):
             self.receipt()
         self.promotion["results"][0]["target_version"] = 2
         self.promotion["dependency_lock_sha256"] = "wrong"
-        with self.assertRaisesRegex(ReleaseError, "different dependency lock"):
+        with self.assertRaisesRegex(ReleaseError, "exact dependency lock"):
+            self.receipt()
+
+    def test_missing_pre_promotion_lock_binding_is_rejected(self):
+        del self.promotion["dependency_lock_sha256"]
+        with self.assertRaisesRegex(ReleaseError, "exact dependency lock"):
+            self.receipt()
+
+    def test_posthoc_lock_cannot_establish_adoption_even_if_rebound(self):
+        self.lock["recorded_at_utc"] = (NOW - timedelta(seconds=10)).isoformat()
+        self.lock["evidence_sha256"] = fingerprint({key: value for key, value in self.lock.items() if key != "evidence_sha256"})
+        self.promotion["dependency_lock_sha256"] = fingerprint(self.lock)
+        with self.assertRaisesRegex(ReleaseError, "captured after promotion"):
             self.receipt()
 
     def test_policy_and_max_age_cannot_change_without_new_receipt(self):

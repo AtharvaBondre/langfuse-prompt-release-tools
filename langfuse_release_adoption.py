@@ -124,8 +124,11 @@ def _promotion_targets(promotion, lock, now):
             not isinstance(promotion.get("stage_report"), dict) or
             promotion["stage_report"].get("sha256") != lock.get("stage_report_sha256")):
         raise ReleaseError("Promotion and dependency lock refer to different releases.")
-    if promotion.get("dependency_lock_sha256") is not None and promotion["dependency_lock_sha256"] != fingerprint(lock):
-        raise ReleaseError("Promotion records a different dependency lock.")
+    if promotion.get("dependency_lock_sha256") != fingerprint(lock):
+        raise ReleaseError("Promotion must record this exact dependency lock before adoption can be checked.")
+    captured = _utc(lock.get("recorded_at_utc"), "dependency_lock.recorded_at_utc")
+    if captured > completed:
+        raise ReleaseError("Dependency lock was captured after promotion; post-hoc closure cannot establish adoption.")
     _label(promotion.get("label"))
     rows = promotion.get("results")
     if not isinstance(rows, list) or not rows:

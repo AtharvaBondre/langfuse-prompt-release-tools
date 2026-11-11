@@ -123,7 +123,10 @@ the TTL to zero disables the SDK cache only; server caching remains possible.
 Provide one current observation for every required `(consumer, promoted prompt)`
 pair. `required_consumers` maps each consumer to its expected deployment revision.
 The promotion must be an applied, verified format-version-2 report with
-`completed_at_utc` and matching snapshot/stage/target bindings. All timestamps
+`completed_at_utc`, the exact `dependency_lock_sha256`, and matching
+snapshot/stage/target bindings. The lock must have been captured no later than
+promotion completion. A legacy unbound promotion or a lock created afterwards
+cannot establish adoption of the evaluated closure. All timestamps
 must be timezone-aware UTC. Requests must start after promotion completion;
 observations must be recent, non-future, and after the request started.
 
