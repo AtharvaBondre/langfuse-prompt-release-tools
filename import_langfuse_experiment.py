@@ -184,6 +184,9 @@ def _action_result(source, policy):
     text(result["script_name"], "script_name")
     if result["runtime"] not in ("python", "node") or result["status"] not in ("passed", "regression", "error"):
         raise ReleaseError("Unsupported script runtime/status.")
+    expected_runtime = {"langfuse-python-sdk": "python", "langfuse-javascript-sdk": "node"}.get(policy["producer"]["kind"])
+    if expected_runtime is not None and result["runtime"] != expected_runtime:
+        raise ReleaseError("Experiment runtime differs from the pinned SDK producer.")
     if type(result["duration_ms"]) not in (int, float) or not math.isfinite(result["duration_ms"]) or result["duration_ms"] < 0:
         raise ReleaseError("Script duration must be a finite nonnegative number.")
     url = result["langfuse_experiment_url"]
