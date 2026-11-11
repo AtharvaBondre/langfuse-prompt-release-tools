@@ -2,7 +2,7 @@
 
 A completed local experiment and `flush()` do not prove that Langfuse received every required case and score. This read-only verifier compares the expected results with Langfuse's public experiment and score APIs. Missing exported or sampled-out data remains `pending`; it never becomes confirmed merely because a wait expired.
 
-The supported initial combination is the Python SDK 5.2 stored-IO contract and the public APIs in Langfuse 4.78.0. Older servers without these endpoints fail explicitly. The verifier uses the standard library; it does not run an experiment, submit scores, change a prompt or call a model.
+The audited combinations are the Python SDK 5.2 and JavaScript SDK 6.1.1 stored-IO contracts with public APIs in Langfuse 4.78.0. Older servers without these endpoints fail explicitly. The verifier uses the standard library; it does not run an experiment, submit scores, change a prompt or call a model.
 
 ## API
 
@@ -34,7 +34,7 @@ The finalized execution capture stays immutable after verification. Its digest i
 
 ## Required evidence
 
-The source must preserve one supported Python experiment result with its actual `experiment_id`, `run_name`, every expected case's unique 32-character trace ID, actual output and all typed scores. The capture must preserve the completed execution time window, dataset identity, execution identity and complete case IDs. Missing cases, duplicate traces, changed hashes or weaker score coverage fail before network access.
+The source must preserve one supported Python or Node experiment result with its actual `experiment_id`, `run_name`, every expected case's unique 32-character trace ID, actual output and all typed scores. The pinned `langfuse-python-sdk` producer requires `runtime: python`; `langfuse-javascript-sdk` requires `runtime: node`. The Action producer can use either. The capture must preserve the completed execution time window, dataset identity, execution identity and complete case IDs. Missing cases, duplicate traces, changed hashes or weaker score coverage fail before network access.
 
 The verifier reads:
 
@@ -48,9 +48,11 @@ Embedded experiment-item scores are deliberately not used: their `scoreLimit` to
 
 Every required score must have the expected project, API source, observation/experiment subject, name, data type and value. BOOLEAN scores can be normalized from 0/1 **only when the remote score explicitly says `dataType: BOOLEAN`**. A NUMERIC score of 1 cannot satisfy a BOOLEAN check. Producers should create `Evaluation(..., value=..., data_type="BOOLEAN")` for boolean checks and retain that type in the source artifact. The checked SDK/server pair otherwise persisted an untyped Python boolean as NUMERIC 1.
 
+JavaScript SDK 6.1.1's score writer accepts numbers or strings, so its BOOLEAN evaluator must send `value: 1` or `value: 0` with `dataType: "BOOLEAN"`. Normalize that explicitly typed result into a boolean in the local evidence artifact; do not normalize untyped numeric scores. Returning a raw JavaScript boolean can produce a locally passing result with no persisted score. Such a run remains `pending` here.
+
 ## Stored IO and dataset limits
 
-The checked public API returns stored IO strings. Python SDK 5.2 leaves plain strings unchanged and JSON-serializes other values. Each expected field therefore records `text`, `json` or `null` storage:
+The checked public API returns stored IO strings. Python SDK 5.2 and JavaScript SDK 6.1.1 leave plain strings unchanged and JSON-serialize other values. Each expected field therefore records `text`, `json` or `null` storage:
 
 - Text is compared verbatim, even when it looks like JSON.
 - JSON is decoded exactly once with duplicate-key and non-finite-value rejection, then compared by canonical value hash.
@@ -58,7 +60,9 @@ The checked public API returns stored IO strings. Python SDK 5.2 leaves plain st
 
 This verifies the stored SDK representation. It cannot independently recover type distinctions already lost during serialization: a JSON-looking string and a serialized object can produce identical stored text. The receipt does not claim independent proof of original runtime types or authenticated producer execution. Unsupported projections fail instead of trying multiple coercions until one passes.
 
-For local datasets, Langfuse reports a null dataset ID/version. The SDK derives `experimentItemId` from input data; it does **not** use the local case dictionary's `id`. The verifier maps cases by their unique actual trace IDs and compares stored values. Local dataset name/version/schema identity remains bound producer evidence, not a claim that a hosted Langfuse dataset exists.
+JavaScript's experiment runner omits an empty expected-output string from span attributes. If the API consequently returns null, verification fails; the verifier does not pretend null and empty text are equivalent. Non-JSON values such as undefined, functions, BigInt and non-finite numbers are outside the supported evidence contract. Node expectations explicitly bind `runtime: node` and use a JavaScript receipt scope; older Python expectation hashes and receipt scopes remain unchanged.
+
+For local datasets, Langfuse reports a null dataset ID/version. Python derives `experimentItemId` from input data instead of the local case dictionary's `id`; JavaScript uses a supplied item `id` or derives a hash when absent. The verifier maps cases by their unique actual trace IDs and compares stored values. Local dataset name/version/schema identity remains bound producer evidence, not a claim that a hosted Langfuse dataset exists.
 
 For hosted datasets, the verifier additionally fetches `GET /api/public/v2/datasets/{encoded name}`, matches ID/name, requires each remote case ID and compares `experimentItemVersion` with the captured aware timestamp. That is evidence of the dataset version attached to the experiment, not an independent replay of historical dataset storage. If `schema_sha256` is pinned, it must be the canonical SHA-256 of `{"inputSchema": ..., "expectedOutputSchema": ...}`; the current dataset response must expose and match both fields. Schema and item version are separate checks.
 
@@ -86,6 +90,6 @@ Primary sources were checked at Langfuse 4.78.0 commit `138beceb728b998003059981
 - [Score v3 handler](https://github.com/langfuse/langfuse/blob/138beceb728b998003059981892ad09e04f154b1/web/src/pages/api/public/v3/scores/index.ts): trace/observation filter requirement and cursor-limit metadata.
 - [Score v3 schema](https://github.com/langfuse/langfuse/blob/138beceb728b998003059981892ad09e04f154b1/packages/shared/src/features/scores/interfaces/api/v3/schemas.ts): explicit polymorphic score types.
 
-Python SDK 5.2.0's `_client/client.py` experiment runner and `_client/attributes.py:_serialize` were also inspected. Local read-only API checks confirmed the stored IO strings, observation-scoped score queries and untyped-boolean mismatch described above. Those checks do not establish all tenant/SDK combinations.
+Python SDK 5.2.0's `_client/client.py` experiment runner and `_client/attributes.py:_serialize` were also inspected. JavaScript SDK 6.1.1's published packages were checked: `@langfuse/core` (`src/utils.ts:serializeValue`), `@langfuse/tracing` (`src/attributes.ts:_serialize`) and `@langfuse/client` (experiment `runItem` and score writer). Local read-only API checks confirmed stored IO strings, observation-scoped score queries, the Python untyped-boolean mismatch and the JavaScript missing-score outcome for raw boolean values. Those checks do not establish all tenant/SDK combinations or claim a confirmed complete JavaScript run.
 
 Run `python -m unittest -v test_release_remote` for offline tests of typed values, exact coverage, local/hosted dataset identity, schema/version drift, pagination, eventual consistency, timeout, sampling/export gaps, wrong projects, private output and receipt validation. Live end-to-end results belong in the release's validation record rather than being inferred from these fixtures.

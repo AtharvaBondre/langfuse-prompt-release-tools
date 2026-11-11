@@ -20,6 +20,11 @@ from publish_langfuse_prompts import write_report
 
 
 REMOTE_SCOPE = "stored Python SDK IO and expected typed scores; not independent runtime-type proof, runner authentication or fleet adoption"
+NODE_REMOTE_SCOPE = "stored JavaScript SDK IO and expected typed scores; not independent runtime-type proof, runner authentication or fleet adoption"
+
+
+def _scope(expected):
+    return NODE_REMOTE_SCOPE if expected.get("runtime") == "node" else REMOTE_SCOPE
 
 
 class RemoteClient(Client):
@@ -73,9 +78,9 @@ def _storage_kind(value):
 
 
 def _stored_io_hash(value, kind):
-    # Langfuse 4.78 forwards stored IO and Python 5.2 leaves plain strings
-    # unchanged while serializing other JSON values once. This verifies the
-    # stored representation; it cannot recover types lost during serialization.
+    # Langfuse 4.78 forwards stored IO. Python 5.2 and JavaScript 6.1.1 leave
+    # strings unchanged and serialize other JSON values once. This verifies
+    # stored representation, not types lost before/during serialization.
     if kind == "null":
         if value is not None:
             raise ReleaseError("Stored null IO differs from expected null.")
@@ -127,8 +132,10 @@ def make_remote_expectation(source_results, execution_capture, policy, *, host, 
     host, project_id = _normalize_host(host), _id(project_id, "expected project ID")
     source, capture = source_results, execution_capture
     script = _action_result(source, policy)
-    if script["runtime"] != "python":
-        raise ReleaseError("Remote IO verification currently supports the audited Python SDK storage contract only.")
+    producer_runtime = {"langfuse-python-sdk": "python", "langfuse-javascript-sdk": "node"}
+    required_runtime = producer_runtime.get(policy["producer"]["kind"])
+    if required_runtime is not None and script["runtime"] != required_runtime:
+        raise ReleaseError("Experiment runtime differs from the independently pinned SDK producer.")
     if not isinstance(capture, dict) or type(capture.get("format_version")) is not int or capture.get("format_version") != 1 or capture.get("mode") != "langfuse_execution_capture":
         raise ReleaseError("A finalized execution capture is required.")
     if capture.get("result_sha256") != fingerprint(source) or capture.get("policy_sha256") != fingerprint(policy):
@@ -203,6 +210,10 @@ def make_remote_expectation(source_results, execution_capture, policy, *, host, 
                 "source_results_sha256": fingerprint(source), "execution_capture_sha256": fingerprint(capture),
                 "policy_sha256": fingerprint(policy), "cases": [cases[name] for name in sorted(cases)],
                 "run_scores": sorted(run_scores, key=lambda row: row["name"])}
+    # Keep existing Python receipt hashes stable while explicitly binding the
+    # newly audited Node storage contract and its separate receipt scope.
+    if script["runtime"] == "node":
+        expected["runtime"] = "node"
     expected["evidence_sha256"] = fingerprint(expected)
     return expected
 
@@ -211,7 +222,9 @@ def _validate_expectation(expected):
     required = ("format_version", "mode", "host", "project_id", "experiment_id", "run_name", "dataset",
                 "started_at_utc", "completed_at_utc", "source_results_sha256", "execution_capture_sha256",
                 "policy_sha256", "cases", "run_scores", "evidence_sha256")
-    object_fields(expected, required, where="remote expectation")
+    object_fields(expected, required, ("runtime",), where="remote expectation")
+    if "runtime" in expected and expected["runtime"] != "node":
+        raise ReleaseError("Unsupported explicit remote expectation runtime.")
     if type(expected["format_version"]) is not int or expected["format_version"] != 1 or expected["mode"] != "remote_experiment_expectation":
         raise ReleaseError("Unsupported remote expectation format.")
     if expected["evidence_sha256"] != fingerprint({k: v for k, v in expected.items() if k != "evidence_sha256"}):
@@ -475,7 +488,7 @@ def verify_remote(client, expectation, *, wait_seconds=60, poll_interval_seconds
               "expectation_sha256": fingerprint(expected), "source_results_sha256": expected["source_results_sha256"],
               "execution_capture_sha256": expected["execution_capture_sha256"], "policy_sha256": expected["policy_sha256"],
               "attempts": 0, "issues": [], "observed_cases": [], "observed_run_scores": [],
-              "scope": REMOTE_SCOPE,
+              "scope": _scope(expected),
               "wait_seconds": wait_seconds, "poll_interval_seconds": poll_interval_seconds,
               "max_pages": max_pages, "page_size": page_size}
     path = None
@@ -517,7 +530,7 @@ def validate_remote_receipt(receipt, expectation, *, max_age_seconds=300, now=No
     for key in ("host", "project_id", "experiment_id", "source_results_sha256", "execution_capture_sha256", "policy_sha256"):
         if receipt.get(key) != expected[key]:
             raise ReleaseError("Remote persistence receipt belongs to different execution evidence or project.")
-    if receipt.get("scope") != REMOTE_SCOPE or type(receipt.get("attempts")) is not int or receipt["attempts"] < 1:
+    if receipt.get("scope") != _scope(expected) or type(receipt.get("attempts")) is not int or receipt["attempts"] < 1:
         raise ReleaseError("Remote receipt verification scope or attempt count is invalid.")
     if receipt.get("expectation_sha256") != fingerprint(expected) or receipt.get("issues") != []:
         raise ReleaseError("Remote receipt expectation binding or findings are invalid.")

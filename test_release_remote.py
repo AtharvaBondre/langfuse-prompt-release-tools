@@ -441,6 +441,83 @@ class RemotePersistenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ReleaseError, "contradicts"):
             remote.make_remote_expectation(source, capture, policy, host=HOST, project_id=PROJECT)
 
+    def node_fixture(self, kind="local", producer="langfuse-javascript-sdk"):
+        policy, source, capture = policy_and_capture(kind)
+        policy["producer"]["kind"] = producer
+        source["results"][0]["runtime"] = "node"
+        capture["result_sha256"] = fingerprint(source)
+        capture["policy_sha256"] = fingerprint(policy)
+        expected = remote.make_remote_expectation(source, capture, policy, host=HOST, project_id=PROJECT, dataset_kind=kind)
+        backend = PersistenceHTTP(expected)
+        api = remote.RemoteClient(HOST, timeout=1)
+        api._opener = backend
+        return api, backend, expected, policy, source, capture
+
+    def test_node_sdk_and_action_runtime_confirm_complete_get_only_evidence(self):
+        for producer in ("langfuse-javascript-sdk", "langfuse-experiment-action"):
+            for kind in ("local", "langfuse"):
+                with self.subTest(producer=producer, kind=kind):
+                    api, backend, expected, *_ = self.node_fixture(kind, producer)
+                    if kind == "local":
+                        # Unlike Python, Node uses a supplied local item.id.
+                        for row, case in zip(backend.items, expected["cases"]):
+                            row["experimentItemId"] = case["id"]
+                    receipt = self.verify(api, expected)
+                    self.assertEqual("confirmed", receipt["status"], receipt["issues"])
+                    self.assertEqual("node", expected["runtime"])
+                    self.assertEqual(remote.NODE_REMOTE_SCOPE, receipt["scope"])
+                    self.assertEqual(receipt, remote.validate_remote_receipt(receipt, expected))
+                    self.assertTrue(all(row["method"] == "GET" for row in backend.requests))
+
+    def test_node_dropped_empty_expected_output_is_not_confirmed(self):
+        api, backend, _, policy, source, capture = self.node_fixture()
+        item = source["results"][0]["experiment_result"]["item_results"][0]
+        item["item"]["expected_output"] = ""
+        policy["dataset"]["cases"][0]["expected_output_sha256"] = fingerprint("")
+        capture["result_sha256"], capture["policy_sha256"] = fingerprint(source), fingerprint(policy)
+        expected = remote.make_remote_expectation(source, capture, policy, host=HOST, project_id=PROJECT)
+        backend.items[0]["expectedOutput"] = None  # JS client 6.1.1 drops the empty string attribute.
+        receipt = self.verify(api, expected)
+        self.assertEqual("failed", receipt["status"])
+        self.assertEqual([], receipt["observed_cases"])
+
+    def test_node_json_text_and_null_use_exact_audited_storage_contract(self):
+        for value in (None, '{"answer":1}', "true", {"nested": [1, False, None]}, [0, ""], False, 0):
+            api, backend, _, policy, source, capture = self.node_fixture()
+            item = source["results"][0]["experiment_result"]["item_results"][0]
+            item["item"]["input"] = item["item"]["expected_output"] = item["output"] = value
+            policy["dataset"]["cases"][0].update(input_sha256=fingerprint(value), expected_output_sha256=fingerprint(value))
+            capture["result_sha256"], capture["policy_sha256"] = fingerprint(source), fingerprint(policy)
+            expected = remote.make_remote_expectation(source, capture, policy, host=HOST, project_id=PROJECT)
+            stored = value if value is None or isinstance(value, str) else json.dumps(value, separators=(",", ":"))
+            backend.items[0].update(input=stored, expectedOutput=stored, output=stored)
+            with self.subTest(value=value):
+                receipt = self.verify(api, expected)
+                self.assertEqual("confirmed", receipt["status"], receipt["issues"])
+
+    def test_sdk_producer_runtime_mismatch_and_unsupported_runtime_fail(self):
+        for producer, runtime in (("langfuse-python-sdk", "node"), ("langfuse-javascript-sdk", "python"),
+                                  ("langfuse-experiment-action", "ruby")):
+            policy, source, capture = policy_and_capture()
+            policy["producer"]["kind"] = producer
+            source["results"][0]["runtime"] = runtime
+            capture["result_sha256"], capture["policy_sha256"] = fingerprint(source), fingerprint(policy)
+            with self.subTest(producer=producer, runtime=runtime), self.assertRaisesRegex(ReleaseError, "runtime"):
+                remote.make_remote_expectation(source, capture, policy, host=HOST, project_id=PROJECT)
+
+    def test_node_receipt_cannot_claim_python_scope_or_rebind_runtime(self):
+        api, _, expected, *_ = self.node_fixture()
+        receipt = self.verify(api, expected)
+        receipt["scope"] = remote.REMOTE_SCOPE
+        receipt["evidence_sha256"] = fingerprint({k: v for k, v in receipt.items() if k != "evidence_sha256"})
+        with self.assertRaisesRegex(ReleaseError, "scope"):
+            remote.validate_remote_receipt(receipt, expected)
+        changed = copy.deepcopy(expected)
+        changed["runtime"] = "ruby"
+        changed["evidence_sha256"] = fingerprint({k: v for k, v in changed.items() if k != "evidence_sha256"})
+        with self.assertRaisesRegex(ReleaseError, "runtime"):
+            self.verify(api, changed)
+
     def test_remote_schema_digest_is_checked_separately_from_dataset_version(self):
         api, backend, _, policy, source, capture = self.prepare("langfuse")
         schema = {"inputSchema": None, "expectedOutputSchema": None}
