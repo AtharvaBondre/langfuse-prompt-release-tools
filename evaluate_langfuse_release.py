@@ -14,6 +14,7 @@ from pathlib import Path
 
 from langfuse_release_common import ReleaseError, fingerprint, inside
 from publish_langfuse_prompts import load_snapshot, write_report
+from langfuse_release_policy import snapshot_policy
 
 
 def _read_object(path, description):
@@ -133,6 +134,8 @@ def _status(results):
 def record_evaluation(manifest_path, stage_report_path, results_path, *, required_checks, report_name=None):
     required = _required_check_ids(required_checks)
     manifest_path, snapshot = load_snapshot(manifest_path)
+    if snapshot_policy(snapshot) is not None:
+        raise ReleaseError("This snapshot pins an experiment policy; import execution-time experiment evidence instead of legacy checks.")
     stage_path, stage = _read_object(stage_report_path, "stage report")
     source_path, source = _read_object(results_path, "application results")
     results = _parse_results(source, snapshot, stage, required)
@@ -160,6 +163,12 @@ def record_evaluation(manifest_path, stage_report_path, results_path, *, require
 def validate_evaluation(report_path, snapshot, stage):
     """Re-read evidence and its source results; return passing evidence or fail closed."""
     _, report = _read_object(report_path, "evaluation report")
+    policy = snapshot_policy(snapshot)
+    if policy is not None or (type(report.get("format_version")) is int and report["format_version"] == 2):
+        if report.get("mode") != "langfuse_experiment_evaluation" or type(report.get("format_version")) is not int or report["format_version"] != 2:
+            raise ReleaseError("Pinned policy requires imported experiment evidence; legacy receipt downgrade is blocked.")
+        from import_langfuse_experiment import validate_experiment
+        return validate_experiment(report_path, snapshot, stage)
     if (type(report.get("format_version")) is not int or report["format_version"] != 1 or
             report.get("mode") != "application_evaluation"):
         raise ReleaseError("Expected a format_version=1 application-evaluation report.")

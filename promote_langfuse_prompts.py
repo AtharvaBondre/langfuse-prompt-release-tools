@@ -15,6 +15,7 @@ from pathlib import Path
 from langfuse_release_common import Client, ReleaseError, fingerprint, inside, make_payload, verify_exact
 from publish_langfuse_prompts import load_snapshot, write_report
 from evaluate_langfuse_release import validate_evaluation
+from langfuse_release_policy import snapshot_policy
 
 
 def _positive_int(value):
@@ -107,6 +108,9 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
             label == "latest"):
         raise ReleaseError("Choose one explicit non-latest label using 1–36 lowercase letters, digits, _, . or -.")
     manifest_path, snapshot = load_snapshot(manifest_path)
+    pinned_policy = snapshot_policy(snapshot)
+    if pinned_policy is not None and (allow_structural_only or not require_evaluation or evaluation_report is None):
+        raise ReleaseError("This snapshot pins an experiment policy; structural-only promotion cannot bypass it.")
     if snapshot.get("host") != client.host:
         raise ReleaseError("Snapshot host does not match the requested target.")
     stage_path = Path(stage_report_path)
@@ -136,6 +140,7 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
               "stage_report": {"file": str(stage_path), "sha256": fingerprint(stage)},
               "evaluation": {"required": bool(require_evaluation or evaluation_path is not None),
                              "allow_structural_only": allow_structural_only,
+                             "policy_sha256": pinned_policy["sha256"] if pinned_policy else None,
                              "file": str(evaluation_path) if evaluation_path is not None else None,
                              "status": "pending" if evaluation_path is not None else "not_requested"},
               "results": [plan["result"] for plan in plans]}
