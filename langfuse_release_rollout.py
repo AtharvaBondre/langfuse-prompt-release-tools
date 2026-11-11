@@ -276,12 +276,18 @@ def _recovery(status, issues, promotion):
 
 def build_rollout_report(observations, window, policy, promotion, dependency_lock, *, now=None, provenance=None):
     """Aggregate a closed or collecting window; invalid runtime samples never disappear."""
+    implicit_now = now is None
     policy, now = validate_rollout_policy(policy), _now(now)
     start, end = _validate_window_bindings(window, policy, promotion, dependency_lock, now)
     if not isinstance(observations, list):
         raise ReleaseError("Rollout observations must be a list of bound samples.")
     samples = copy.deepcopy(observations)
     provenance_result, provenance_reasons = _provenance(provenance, policy, samples, window)
+    if implicit_now:
+        # External attestation verification may take seconds. Its elapsed time
+        # counts toward freshness; an explicit historical time remains frozen.
+        now = _now(None)
+        start, end = _validate_window_bindings(window, policy, promotion, dependency_lock, now)
     issues = [{"code": code} for code in provenance_reasons]
     pending = []
     buckets = policy["window_seconds"] // policy["bucket_seconds"]
@@ -400,18 +406,32 @@ def check_rollout_report(report, window, policy, promotion, dependency_lock, *, 
     _integrity(report, "rollout_observation")
     if report.get("status") != "complete":
         raise ReleaseError("Rollout evidence is not complete.")
+    implicit_now = now is None
     checked_at = _now(now)
+    policy = validate_rollout_policy(policy)
     recorded = _utc(report.get("recorded_at_utc"), "report time")
     if recorded > checked_at:
         raise ReleaseError("Rollout report is from the future.")
+    # Reconstruct the historical report and authenticate its source once.
     original = build_rollout_report(report.get("observations"), window, policy, promotion, dependency_lock,
                                    now=recorded, provenance=provenance)
     if fingerprint(original) != fingerprint(report):
         raise ReleaseError("Rollout report bindings, policy, provenance or computed results changed.")
-    fresh = build_rollout_report(report["observations"], window, policy, promotion, dependency_lock,
-                                now=checked_at, provenance=provenance)
-    if fresh["status"] != "complete":
-        raise ReleaseError("Rollout samples no longer meet freshness or the reviewed policy.")
+    if implicit_now:
+        checked_at = _now(None)
+    if recorded > checked_at:
+        raise ReleaseError("Rollout report is from the future after verification.")
+    # For an already complete, exactly reconstructed report, only age can change
+    # as time advances. Reuse its authenticated samples instead of invoking the
+    # external verifier a second time merely to recalculate freshness.
+    for sample in original["observations"]:
+        observed_at = _utc(sample["observation"]["observed_at_utc"], "observation time")
+        if (checked_at - observed_at).total_seconds() > policy["max_observation_age_seconds"]:
+            raise ReleaseError("Rollout samples no longer meet freshness or the reviewed policy.")
+    for consumer in original["consumers"]:
+        latest_clean = _utc(consumer["latest_clean_observed_at_utc"], "latest clean observation")
+        if (checked_at - latest_clean).total_seconds() > policy["max_latest_observation_age_seconds"]:
+            raise ReleaseError("Rollout samples no longer meet freshness or the reviewed policy.")
     return report
 
 

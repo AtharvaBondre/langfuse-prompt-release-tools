@@ -1,5 +1,6 @@
 """Offline rollout aggregation tests; samples are synthetic, not traffic proof."""
 import copy
+from contextlib import contextmanager
 import hashlib
 import json
 import tempfile
@@ -75,6 +76,94 @@ class RolloutTests(unittest.TestCase):
 
     def codes(self, report):
         return {issue["code"] for issue in report["issues"]}
+
+    @contextmanager
+    def timed_provenance(self, *, delay=60, max_observation_age=120, max_latest_age=5):
+        """An actual verifier call path with a deterministic advancing test clock."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            trust = {"test_trust": "independently-pinned"}
+            self.policy["provenance"] = {"required": True, "trust_policy_sha256": fingerprint(trust)}
+            self.policy["max_observation_age_seconds"] = max_observation_age
+            self.policy["max_latest_observation_age_seconds"] = max_latest_age
+            self.window = self.pin()
+            samples = self.samples()
+            artifact, trust_path = root / "samples.json", root / "trust.json"
+            artifact.write_text(json.dumps({"format_version": 1, "window_sha256": fingerprint(self.window), "observations": samples}))
+            trust_path.write_text(json.dumps(trust))
+            verified = {"classification": "verified_ci", "artifact_sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
+                        "trust_policy_sha256": fingerprint(trust), "identity": {"repository": "synthetic/test"}, "verifier": "mock-clock-test"}
+            clock = {"now": self.finish, "delay": delay}
+            actual_now = rollout._now
+            def read_clock(value=None):
+                return clock["now"] if value is None else actual_now(value)
+            def verify(*args, **kwargs):
+                clock["now"] += timedelta(seconds=clock["delay"])
+                return copy.deepcopy(verified)
+            verifier = unittest.mock.Mock(side_effect=verify)
+            request = {"artifact_path": artifact, "trust_policy_path": trust_path}
+            with patch.dict("sys.modules", {"langfuse_release_provenance": types.SimpleNamespace(verify_provenance=verifier)}), patch.object(rollout, "_now", side_effect=read_clock):
+                yield samples, request, clock, verifier
+
+    def test_implicit_build_counts_verification_time_against_latest_clean_freshness(self):
+        with self.timed_provenance() as (samples, request, clock, verifier):
+            report = rollout.build_rollout_report(samples, self.window, self.policy, self.promotion, self.lock, provenance=request)
+            self.assertEqual("failed", report["status"])
+            self.assertIn("missing_or_stale_latest_observation", self.codes(report))
+            self.assertEqual(61.5, report["consumers"][0]["latest_clean_age_seconds"])
+            self.assertEqual(clock["now"].isoformat(), report["recorded_at_utc"])
+            verifier.assert_called_once()
+
+    def test_implicit_build_counts_verification_time_against_all_sample_freshness(self):
+        with self.timed_provenance(max_observation_age=30, max_latest_age=120) as (samples, request, clock, verifier):
+            report = rollout.build_rollout_report(samples, self.window, self.policy, self.promotion, self.lock, provenance=request)
+            self.assertEqual("failed", report["status"])
+            self.assertIn("stale_observation", self.codes(report))
+            verifier.assert_called_once()
+
+    def test_explicit_build_time_remains_a_historical_evaluation(self):
+        with self.timed_provenance() as (samples, request, clock, verifier):
+            report = self.report(samples, provenance=request)
+            self.assertEqual("complete", report["status"])
+            self.assertEqual(1.5, report["consumers"][0]["latest_clean_age_seconds"])
+            self.assertEqual(self.finish.isoformat(), report["recorded_at_utc"])
+            self.assertGreater(clock["now"], self.finish)
+            verifier.assert_called_once()
+
+    def test_implicit_check_refreshes_clock_after_one_verification(self):
+        with self.timed_provenance(delay=0) as (samples, request, clock, verifier):
+            report = self.report(samples, provenance=request)
+            clock["delay"] = 60
+            verifier.reset_mock()
+            with self.assertRaisesRegex(ReleaseError, "freshness"):
+                rollout.check_rollout_report(report, self.window, self.policy, self.promotion, self.lock, provenance=request)
+            verifier.assert_called_once()
+
+    def test_implicit_check_rechecks_every_sample_age_after_verification(self):
+        with self.timed_provenance(delay=0, max_observation_age=30, max_latest_age=120) as (samples, request, clock, verifier):
+            report = self.report(samples, provenance=request)
+            clock["delay"] = 60
+            verifier.reset_mock()
+            with self.assertRaisesRegex(ReleaseError, "freshness"):
+                rollout.check_rollout_report(report, self.window, self.policy, self.promotion, self.lock, provenance=request)
+            verifier.assert_called_once()
+
+    def test_explicit_check_time_stays_fixed_and_verifier_is_not_duplicated(self):
+        with self.timed_provenance(delay=0) as (samples, request, clock, verifier):
+            report = self.report(samples, provenance=request)
+            clock["delay"] = 60
+            verifier.reset_mock()
+            self.assertEqual(report, self.check(report, provenance=request))
+            self.assertGreater(clock["now"], self.finish)
+            verifier.assert_called_once()
+
+    def test_implicit_check_can_pass_after_short_verification_without_a_second_call(self):
+        with self.timed_provenance(delay=0) as (samples, request, clock, verifier):
+            report = self.report(samples, provenance=request)
+            clock["delay"] = 1
+            verifier.reset_mock()
+            self.assertEqual(report, rollout.check_rollout_report(report, self.window, self.policy, self.promotion, self.lock, provenance=request))
+            verifier.assert_called_once()
 
     def test_two_consumers_two_buckets_complete_with_honest_counts(self):
         report = self.report()
