@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools==80.9.0", "wheel==0.47.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "langfuse-prompt-release-tools"
+version = "0.4.0a1"
+description = "Reviewed prompt snapshots, staged versions, evidence checks and explicit label promotion"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "THIRD-PARTY-NOTICES.md"]
+requires-python = ">=3.10"
+dependencies = []
+authors = [{name = "Atharva Bondre"}]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Repository = "https://github.com/AtharvaBondre/langfuse-prompt-release-tools"
+Issues = "https://github.com/AtharvaBondre/langfuse-prompt-release-tools/issues"
+Changelog = "https://github.com/AtharvaBondre/langfuse-prompt-release-tools/blob/main/CHANGELOG.md"
+
+[project.scripts]
+langfuse-release-pull = "pull_langfuse_prompts:main"
+langfuse-release-publish = "publish_langfuse_prompts:main"
+langfuse-release-verify = "verify_langfuse_prompts:main"
+langfuse-release-promote = "promote_langfuse_prompts:main"
+langfuse-release-evaluate = "evaluate_langfuse_release:main"
+
+[project.optional-dependencies]
+review = [
+  "PyYAML==6.0.3",
+  "openapi-schema-validator==0.6.3",
+  "jsonschema==4.26.0",
+  "jsonschema-specifications==2025.9.1",
+  "rfc3339-validator==0.1.4",
+  "attrs==26.1.0",
+  "referencing==0.37.0",
+  "rpds-py==2026.9.1",
+  "six==1.17.0",
+]
+
+[tool.setuptools]
+include-package-data = false
+py-modules = [
+  "langfuse_release_common",
+  "pull_langfuse_prompts",
+  "publish_langfuse_prompts",
+  "verify_langfuse_prompts",
+  "promote_langfuse_prompts",
+  "evaluate_langfuse_release",
+]

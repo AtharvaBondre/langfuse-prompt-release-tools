@@ -1,0 +1,25 @@
+# Runtime data is private, even when the source repository is public.
+.env
+.env.*
+*.env
+!.env.example
+release-review/
+snapshots/
+reports/
+results/
+app-results*.json
+outputs*.json
+captured-outputs*.json
+prompt-index.json
+runtime.env
+local-demo*/
+# Local development/build output
+.venv*/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+.DS_Store

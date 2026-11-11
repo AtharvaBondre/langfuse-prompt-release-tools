@@ -1,0 +1,245 @@
+{
+  "services": {
+    "langfuse-worker": {
+      "image": "docker.langfuse.com/langfuse/langfuse-worker@sha256:ca32a8fb2a214c7b5f42dd9c540c8072e41db659cb621f317911ce695ad6bca2",
+      "restart": "no",
+      "depends_on": {
+        "postgres": {
+          "condition": "service_healthy"
+        },
+        "minio": {
+          "condition": "service_healthy"
+        },
+        "redis": {
+          "condition": "service_healthy"
+        },
+        "clickhouse": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": {
+        "NEXTAUTH_URL": "http://127.0.0.1:13830",
+        "DATABASE_URL": "postgresql://postgres:${POSTGRES_PASSWORD:?Run prepare_local_demo.py and use its runtime.env}@postgres:5432/postgres",
+        "SALT": "${SALT:?Run prepare_local_demo.py and use its runtime.env}",
+        "ENCRYPTION_KEY": "${ENCRYPTION_KEY:?Run prepare_local_demo.py and use its runtime.env}",
+        "TELEMETRY_ENABLED": "false",
+        "CLICKHOUSE_MIGRATION_URL": "clickhouse://clickhouse:9000",
+        "CLICKHOUSE_URL": "http://clickhouse:8123",
+        "CLICKHOUSE_USER": "clickhouse",
+        "CLICKHOUSE_PASSWORD": "${CLICKHOUSE_PASSWORD:?Run prepare_local_demo.py and use its runtime.env}",
+        "CLICKHOUSE_CLUSTER_ENABLED": "false",
+        "REDIS_HOST": "redis",
+        "REDIS_PORT": "6379",
+        "REDIS_AUTH": "${REDIS_AUTH:?Run prepare_local_demo.py and use its runtime.env}",
+        "REDIS_TLS_ENABLED": "false",
+        "LANGFUSE_IN_APP_AGENT_ENABLED": "false",
+        "LANGFUSE_S3_EVENT_UPLOAD_BUCKET": "langfuse",
+        "LANGFUSE_S3_EVENT_UPLOAD_REGION": "auto",
+        "LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID": "${MINIO_ROOT_USER:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY": "${MINIO_ROOT_PASSWORD:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT": "http://minio:9000",
+        "LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE": "true",
+        "LANGFUSE_S3_MEDIA_UPLOAD_BUCKET": "langfuse",
+        "LANGFUSE_S3_MEDIA_UPLOAD_REGION": "auto",
+        "LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID": "${MINIO_ROOT_USER:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY": "${MINIO_ROOT_PASSWORD:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT": "http://minio:9000",
+        "LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE": "true",
+        "NODE_OPTIONS": "--max-old-space-size=384"
+      },
+      "mem_limit": "640m",
+      "platform": "linux/arm64"
+    },
+    "langfuse-web": {
+      "image": "docker.langfuse.com/langfuse/langfuse@sha256:67f48d12a190e4ad585249c75ae1ce172b449de3dbbe7486b8179cd28e21408e",
+      "restart": "no",
+      "depends_on": {
+        "postgres": {
+          "condition": "service_healthy"
+        },
+        "minio": {
+          "condition": "service_healthy"
+        },
+        "redis": {
+          "condition": "service_healthy"
+        },
+        "clickhouse": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": {
+        "NEXTAUTH_URL": "http://127.0.0.1:13830",
+        "DATABASE_URL": "postgresql://postgres:${POSTGRES_PASSWORD:?Run prepare_local_demo.py and use its runtime.env}@postgres:5432/postgres",
+        "SALT": "${SALT:?Run prepare_local_demo.py and use its runtime.env}",
+        "ENCRYPTION_KEY": "${ENCRYPTION_KEY:?Run prepare_local_demo.py and use its runtime.env}",
+        "TELEMETRY_ENABLED": "false",
+        "CLICKHOUSE_MIGRATION_URL": "clickhouse://clickhouse:9000",
+        "CLICKHOUSE_URL": "http://clickhouse:8123",
+        "CLICKHOUSE_USER": "clickhouse",
+        "CLICKHOUSE_PASSWORD": "${CLICKHOUSE_PASSWORD:?Run prepare_local_demo.py and use its runtime.env}",
+        "CLICKHOUSE_CLUSTER_ENABLED": "false",
+        "REDIS_HOST": "redis",
+        "REDIS_PORT": "6379",
+        "REDIS_AUTH": "${REDIS_AUTH:?Run prepare_local_demo.py and use its runtime.env}",
+        "REDIS_TLS_ENABLED": "false",
+        "LANGFUSE_IN_APP_AGENT_ENABLED": "false",
+        "LANGFUSE_S3_EVENT_UPLOAD_BUCKET": "langfuse",
+        "LANGFUSE_S3_EVENT_UPLOAD_REGION": "auto",
+        "LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID": "${MINIO_ROOT_USER:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY": "${MINIO_ROOT_PASSWORD:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT": "http://minio:9000",
+        "LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE": "true",
+        "LANGFUSE_S3_MEDIA_UPLOAD_BUCKET": "langfuse",
+        "LANGFUSE_S3_MEDIA_UPLOAD_REGION": "auto",
+        "LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID": "${MINIO_ROOT_USER:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY": "${MINIO_ROOT_PASSWORD:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT": "http://minio:9000",
+        "LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE": "true",
+        "NODE_OPTIONS": "--max-old-space-size=768",
+        "NEXTAUTH_SECRET": "${NEXTAUTH_SECRET:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_S3_MEDIA_UPLOAD_INTERNAL_ENDPOINT": "http://minio:9000",
+        "LANGFUSE_INIT_ORG_ID": "${LANGFUSE_INIT_ORG_ID:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_INIT_PROJECT_ID": "${LANGFUSE_INIT_PROJECT_ID:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_INIT_PROJECT_PUBLIC_KEY": "${LANGFUSE_INIT_PROJECT_PUBLIC_KEY:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_INIT_PROJECT_SECRET_KEY": "${LANGFUSE_INIT_PROJECT_SECRET_KEY:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_INIT_USER_EMAIL": "${LANGFUSE_INIT_USER_EMAIL:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_INIT_USER_PASSWORD": "${LANGFUSE_INIT_USER_PASSWORD:?Run prepare_local_demo.py and use its runtime.env}",
+        "LANGFUSE_INIT_ORG_NAME": "Local release demo",
+        "LANGFUSE_INIT_PROJECT_NAME": "Disposable prompt test",
+        "LANGFUSE_INIT_USER_NAME": "Local demo user"
+      },
+      "mem_limit": "1536m",
+      "ports": [
+        "127.0.0.1:13830:3000"
+      ],
+      "platform": "linux/arm64"
+    },
+    "clickhouse": {
+      "image": "clickhouse/clickhouse-server@sha256:8a790dd3468db22b1d4e7b18a176f378ff5ff6053b9c48dd4ea1fa71a24c5ba6",
+      "restart": "no",
+      "user": "101:101",
+      "environment": {
+        "CLICKHOUSE_DB": "default",
+        "CLICKHOUSE_USER": "clickhouse",
+        "CLICKHOUSE_PASSWORD": "${CLICKHOUSE_PASSWORD:?Run prepare_local_demo.py and use its runtime.env}"
+      },
+      "volumes": [
+        "langfuse_clickhouse_data:/var/lib/clickhouse",
+        "langfuse_clickhouse_logs:/var/log/clickhouse-server",
+        "./clickhouse-demo.xml:/etc/clickhouse-server/config.d/demo.xml:ro"
+      ],
+      "healthcheck": {
+        "test": "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1",
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 10,
+        "start_period": "1s"
+      },
+      "mem_limit": "768m",
+      "ulimits": {
+        "nofile": {
+          "soft": 262144,
+          "hard": 262144
+        }
+      },
+      "platform": "linux/arm64"
+    },
+    "minio": {
+      "image": "cgr.dev/chainguard/minio@sha256:c93745c56fccdaf0e5dcb88999a96a65a136428beb045ef5d546255a80d747a7",
+      "restart": "no",
+      "entrypoint": "sh",
+      "command": "-c 'mkdir -p /data/langfuse && minio server --address \":9000\" --console-address \":9001\" /data'",
+      "environment": {
+        "MINIO_ROOT_USER": "${MINIO_ROOT_USER:?Run prepare_local_demo.py and use its runtime.env}",
+        "MINIO_ROOT_PASSWORD": "${MINIO_ROOT_PASSWORD:?Run prepare_local_demo.py and use its runtime.env}"
+      },
+      "volumes": [
+        "langfuse_minio_data:/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "mc",
+          "ready",
+          "local"
+        ],
+        "interval": "1s",
+        "timeout": "5s",
+        "retries": 5,
+        "start_period": "1s"
+      },
+      "mem_limit": "256m",
+      "platform": "linux/arm64"
+    },
+    "redis": {
+      "image": "redis@sha256:4fa24486b8bcca8eec45ee0eb166edc674795e53a2b53d1a9ef263eecebaac85",
+      "restart": "no",
+      "command": [
+        "redis-server",
+        "--requirepass",
+        "${REDIS_AUTH:?Run prepare_local_demo.py and use its runtime.env}",
+        "--maxmemory-policy",
+        "noeviction"
+      ],
+      "volumes": [
+        "langfuse_redis_data:/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "redis-cli --no-auth-warning -a \"$${REDIS_AUTH}\" ping | grep -qx PONG"
+        ],
+        "interval": "3s",
+        "timeout": "10s",
+        "retries": 10
+      },
+      "mem_limit": "128m",
+      "platform": "linux/arm64",
+      "environment": {
+        "REDIS_AUTH": "${REDIS_AUTH:?Run prepare_local_demo.py and use its runtime.env}"
+      }
+    },
+    "postgres": {
+      "image": "postgres@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3",
+      "restart": "no",
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -p 5432 -U postgres"
+        ],
+        "interval": "3s",
+        "timeout": "3s",
+        "retries": 10
+      },
+      "environment": {
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD:?Run prepare_local_demo.py and use its runtime.env}",
+        "POSTGRES_DB": "postgres",
+        "TZ": "UTC",
+        "PGTZ": "UTC"
+      },
+      "volumes": [
+        "langfuse_postgres_data:/var/lib/postgresql/data"
+      ],
+      "mem_limit": "256m",
+      "platform": "linux/arm64"
+    }
+  },
+  "volumes": {
+    "langfuse_postgres_data": {
+      "driver": "local"
+    },
+    "langfuse_clickhouse_data": {
+      "driver": "local"
+    },
+    "langfuse_clickhouse_logs": {
+      "driver": "local"
+    },
+    "langfuse_minio_data": {
+      "driver": "local"
+    },
+    "langfuse_redis_data": {
+      "driver": "local"
+    }
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "source_gist": "https://gist.github.com/AtharvaBondre/3ad9d0654b5450d1e007728f67047fa0",
+  "revision": "824e13d8ec01bdee3c3717652ae6852c9aa06dda",
+  "public_verified_at": "2026-11-11T03:46:35.901209+00:00",
+  "files": [
+    {
+      "path": "API-NOTES.md",
+      "sha256": "71a06cdd6dc12b9f8c8156d0ffcdcf2161ee5a6894bd9ec71c33159ba938264c"
+    },
+    {
+      "path": "DEMO-RESULTS.md",
+      "sha256": "58f706a52bdd3a84b3544ddc1328ab47f5a7191b957773ad14dda6fcb1bfbff3"
+    },
+    {
+      "path": "DESIGN-NOTES.md",
+      "sha256": "964e6d15826c269900b57fdbeca5ba57f2df3db8d02264a1a5b1f69df5371828"
+    },
+    {
+      "path": "EVALUATION.md",
+      "sha256": "4931cf3e01aaf994f9e349e53fa800c7048e439dc550dd8601f31eb0896583ed"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "43bd0e8a36427200fbed1a67b240be690a49ce6830ca4836fb0f2ac72adff809"
+    },
+    {
+      "path": "LOCAL-DEMO.md",
+      "sha256": "6a6ef3a0e45adf1596428660b31d993f51f7bdbc7efebbcbd637a9535869228d"
+    },
+    {
+      "path": "MANIFEST.in",
+      "sha256": "e15da794283f70e9f1a29928e9d1c4c761496eaba4821a25c9d312fdadd2ce13"
+    },
+    {
+      "path": "PACKAGING.md",
+      "sha256": "2322318389fa1f54258369e97c842ee7b614dd63d8ad7472f18e5041b8d071dc"
+    },
+    {
+      "path": "README.md",
+      "sha256": "8a3936eabbfccdb9fb82d23fd0be30fa59f51605abcd7eb07580085a95547817"
+    },
+    {
+      "path": "SKILL.md",
+      "sha256": "f3ed03eaab3bc41585c3b9770f0c9a5b9d55fb1c4e49d6ff128d0bc9cf3cdeb2"
+    },
+    {
+      "path": "THIRD-PARTY-NOTICES.md",
+      "sha256": "bfd0ed8cd3960214b49fc55c7633fe01178ab2651dab2448d766721133f01021"
+    },
+    {
+      "path": "api-examples.json",
+      "sha256": "1f98485d16a53c12b99525703b7e83dfffb74e53d4f74bbc9b71ed826c5375bc"
+    },
+    {
+      "path": "compose.demo.json",
+      "sha256": "353ac28e07ab82bab1ac237cdb9c7f75fb0d9e55a1cb762edb206d348b4e9e7b"
+    },
+    {
+      "path": "evaluate_langfuse_release.py",
+      "sha256": "01a9e430fa16446fab4e242e0396e434b8b065f2521b8d186cef69e3ba24324a"
+    },
+    {
+      "path": "integration_langfuse_release.py",
+      "sha256": "f009d53cdc29982cb6a74bf609b960d9c7542eb95eb114f8c8d557f41398f6c9"
+    },
+    {
+      "path": "langfuse_release_common.py",
+      "sha256": "3e097886f99c40dba045b6e18c96a1b94192a8ffe2a413fea844f7519e982674"
+    },
+    {
+      "path": "prepare_local_demo.py",
+      "sha256": "b049742d047ece2ba6ff64ffaffcb477e3a164d81d0b3713946b47a60095bdf0"
+    },
+    {
+      "path": "promote_langfuse_prompts.py",
+      "sha256": "f51c0d4ac238e980290570784ad73c48ff2ba32bd8c5da94564518c028689af6"
+    },
+    {
+      "path": "publish_langfuse_prompts.py",
+      "sha256": "dff2b5cf3cb79949db1eb9cfb378dd2070d0d1959afd300d711b78c09623b98e"
+    },
+    {
+      "path": "pull_langfuse_prompts.py",
+      "sha256": "7a106ab83a0fc148f97951a84ece3f60263221165871a9735c9854f53ff4839d"
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "e9e3c434073a94dc08b34ce9bc96b4976ec4ffd3d97fe9abbc2469d6a08aee60"
+    },
+    {
+      "path": "requirements-review.txt",
+      "sha256": "da2af911c92743d8836d8a070a9d4a31a45ff865b8f3bc16b0fcb1ea849577af"
+    },
+    {
+      "path": "test_evaluation_gate.py",
+      "sha256": "631c4758f9f0d850ddb5905fea3625f6ea31c69bdaf22088f14220c49a1b35a2"
+    },
+    {
+      "path": "test_prompt_release.py",
+      "sha256": "5cf6e20e140346d0286dbfc893fcb535dcb7327e316efe1f3cc02c18b4fb2242"
+    },
+    {
+      "path": "test_staged_release.py",
+      "sha256": "726b08050b4b36cbba1c21592f6bda5886ba54505a63c5505c2c2d9755acc718"
+    },
+    {
+      "path": "validate_api_examples.py",
+      "sha256": "b43d3cc3b951ed715f15f8a441b120333115add7cff490fc41f22ee4d2805e09"
+    },
+    {
+      "path": "verify_langfuse_prompts.py",
+      "sha256": "eee787bc1a6d038beb413c79bcdf808318b0fc11c26c69ca561ba74b9838e2a4"
+    }
+  ],
+  "frozen_source_preserved": true
+}

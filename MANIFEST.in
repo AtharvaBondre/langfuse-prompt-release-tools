@@ -1,0 +1,26 @@
+include API-NOTES.md
+include DESIGN-NOTES.md
+include EVALUATION.md
+include PACKAGING.md
+include SKILL.md
+include LOCAL-DEMO.md
+include DEMO-RESULTS.md
+include THIRD-PARTY-NOTICES.md
+include validate_api_examples.py
+include api-examples.json
+include requirements-review.txt
+include prepare_local_demo.py
+include compose.demo.json
+include integration_langfuse_release.py
+include test_prompt_release.py
+include test_staged_release.py
+include test_evaluation_gate.py
+
+include CHANGELOG.md CONTRIBUTING.md SECURITY.md
+recursive-include docs *.md *.json
+recursive-include skills *.md
+recursive-include tools *.py
+include test_captured_outputs.py
+recursive-include examples *.py *.md
+include .gitignore
+recursive-include .github *.yml *.md

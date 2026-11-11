@@ -1,0 +1,396 @@
+{
+  "format_version": 1,
+  "description": "Synthetic public examples for a pinned OpenAPI development check; none are requests to be executed.",
+  "schema_revision": "e3a2bee2a2c048adf29b8d8a18b29bd4a8bf8ac3",
+  "limits": [
+    "Schema shapes only; no tenant API, credentials, live HTTP request/response or model evaluation.",
+    "Native OAS3.0 semantics are preserved. No conversion of nullable, oneOf or allOf.",
+    "POST runtime success201 versus generated200 is not checked by validating JSON bodies.",
+    "latest advances when staging; PATCH label movement is additive; tags span versions. These side effects are not schema assertions.",
+    "No proof of authorization, protected-label rights, compare-and-swap, atomic batch writes, cache freshness or failure reconciliation.",
+    "Cases whose ids begin oas_accepts intentionally demonstrate generated-schema/runtime differences; they are not recommended payloads."
+  ],
+  "cases": [
+    {
+      "id": "stage_text_create",
+      "schema_ref": "#/components/schemas/CreatePromptRequest",
+      "expected_valid": true,
+      "instance": {
+        "name": "demo-summary",
+        "type": "text",
+        "prompt": "Summarize {{topic}} in one sentence.",
+        "config": {
+          "temperature": 0.2
+        },
+        "labels": [],
+        "tags": [
+          "demo"
+        ],
+        "commitMessage": "Stage a reviewed wording change"
+      },
+      "note": "Synthetic helper-equivalent POST body. Empty labels still advances latest on the server."
+    },
+    {
+      "id": "stage_chat_create",
+      "schema_ref": "#/components/schemas/CreatePromptRequest",
+      "expected_valid": true,
+      "instance": {
+        "name": "demo-conversation",
+        "type": "chat",
+        "prompt": [
+          {
+            "role": "system",
+            "content": "Answer briefly."
+          },
+          {
+            "type": "placeholder",
+            "name": "history"
+          },
+          {
+            "role": "user",
+            "content": "Explain {{topic}}."
+          }
+        ],
+        "config": {
+          "temperature": 0.2
+        },
+        "labels": [],
+        "tags": [
+          "demo"
+        ]
+      },
+      "note": "Synthetic chat placeholder and template-variable names do not collide."
+    },
+    {
+      "id": "stage_text_response",
+      "schema_ref": "#/components/schemas/Prompt",
+      "expected_valid": true,
+      "instance": {
+        "name": "demo-summary",
+        "type": "text",
+        "prompt": "Summarize {{topic}} in one sentence.",
+        "config": {
+          "temperature": 0.2
+        },
+        "labels": [
+          "latest"
+        ],
+        "tags": [
+          "demo"
+        ],
+        "commitMessage": "Stage a reviewed wording change",
+        "version": 8
+      }
+    },
+    {
+      "id": "stage_chat_response",
+      "schema_ref": "#/components/schemas/Prompt",
+      "expected_valid": true,
+      "instance": {
+        "name": "demo-conversation",
+        "type": "chat",
+        "prompt": [
+          {
+            "role": "system",
+            "content": "Answer briefly."
+          },
+          {
+            "type": "placeholder",
+            "name": "history"
+          },
+          {
+            "role": "user",
+            "content": "Explain {{topic}}."
+          }
+        ],
+        "config": {
+          "temperature": 0.2
+        },
+        "labels": [
+          "latest"
+        ],
+        "tags": [
+          "demo"
+        ],
+        "version": 8
+      }
+    },
+    {
+      "id": "list_metadata_response",
+      "schema_ref": "#/components/schemas/PromptMetaListResponse",
+      "expected_valid": true,
+      "instance": {
+        "data": [
+          {
+            "name": "demo-summary",
+            "type": "text",
+            "versions": [
+              7,
+              8
+            ],
+            "labels": [
+              "production",
+              "latest"
+            ],
+            "tags": [
+              "demo"
+            ],
+            "lastUpdatedAt": "2026-01-01T00:00:00Z",
+            "lastConfig": {
+              "temperature": 0.2
+            }
+          }
+        ],
+        "meta": {
+          "page": 1,
+          "limit": 100,
+          "totalItems": 1,
+          "totalPages": 1
+        }
+      }
+    },
+    {
+      "id": "named_raw_response",
+      "schema_ref": "#/components/schemas/Prompt",
+      "expected_valid": true,
+      "instance": {
+        "name": "demo-summary",
+        "type": "text",
+        "prompt": "Summarize {{topic}} in one sentence.",
+        "config": {
+          "temperature": 0.2
+        },
+        "labels": [
+          "latest"
+        ],
+        "tags": [
+          "demo"
+        ],
+        "commitMessage": "Stage a reviewed wording change",
+        "version": 8,
+        "resolutionGraph": null
+      },
+      "note": "GET exact version with resolve=false; no live request occurred."
+    },
+    {
+      "id": "promote_one_label_request",
+      "schema_ref": "#/paths/~1api~1public~1v2~1prompts~1{name}~1versions~1{version}/patch/requestBody/content/application~1json/schema",
+      "expected_valid": true,
+      "instance": {
+        "newLabels": [
+          "production"
+        ]
+      },
+      "note": "PATCH applies to an explicit version; this schema does not validate URL/version or previous-label preconditions."
+    },
+    {
+      "id": "promoted_response",
+      "schema_ref": "#/components/schemas/Prompt",
+      "expected_valid": true,
+      "instance": {
+        "name": "demo-summary",
+        "type": "text",
+        "prompt": "Summarize {{topic}} in one sentence.",
+        "config": {
+          "temperature": 0.2
+        },
+        "labels": [
+          "latest",
+          "production"
+        ],
+        "tags": [
+          "demo"
+        ],
+        "commitMessage": "Stage a reviewed wording change",
+        "version": 8
+      },
+      "note": "Synthetic result only; schema validation does not prove label movement."
+    },
+    {
+      "id": "create_arbitrary_json_config",
+      "schema_ref": "#/components/schemas/CreatePromptRequest",
+      "expected_valid": true,
+      "instance": {
+        "name": "demo-summary",
+        "type": "text",
+        "prompt": "Summarize {{topic}} in one sentence.",
+        "config": false,
+        "labels": [],
+        "tags": [
+          "demo"
+        ],
+        "commitMessage": "Stage a reviewed wording change"
+      }
+    },
+    {
+      "id": "reject_create_missing_prompt",
+      "schema_ref": "#/components/schemas/CreatePromptRequest",
+      "expected_valid": false,
+      "instance": {
+        "name": "demo-summary",
+        "type": "text",
+        "config": {
+          "temperature": 0.2
+        },
+        "labels": [],
+        "tags": [
+          "demo"
+        ],
+        "commitMessage": "Stage a reviewed wording change"
+      }
+    },
+    {
+      "id": "reject_chat_missing_type",
+      "schema_ref": "#/components/schemas/CreatePromptRequest",
+      "expected_valid": false,
+      "instance": {
+        "name": "demo-conversation",
+        "prompt": [
+          {
+            "role": "system",
+            "content": "Answer briefly."
+          },
+          {
+            "type": "placeholder",
+            "name": "history"
+          },
+          {
+            "role": "user",
+            "content": "Explain {{topic}}."
+          }
+        ],
+        "config": {
+          "temperature": 0.2
+        },
+        "labels": [],
+        "tags": [
+          "demo"
+        ]
+      }
+    },
+    {
+      "id": "reject_list_missing_last_config",
+      "schema_ref": "#/components/schemas/PromptMetaListResponse",
+      "expected_valid": false,
+      "instance": {
+        "data": [
+          {
+            "name": "demo-summary",
+            "type": "text",
+            "versions": [
+              7,
+              8
+            ],
+            "labels": [
+              "production",
+              "latest"
+            ],
+            "tags": [
+              "demo"
+            ],
+            "lastUpdatedAt": "2026-01-01T00:00:00Z"
+          }
+        ],
+        "meta": {
+          "page": 1,
+          "limit": 100,
+          "totalItems": 1,
+          "totalPages": 1
+        }
+      }
+    },
+    {
+      "id": "reject_named_missing_config",
+      "schema_ref": "#/components/schemas/Prompt",
+      "expected_valid": false,
+      "instance": {
+        "name": "demo-summary",
+        "type": "text",
+        "prompt": "Summarize {{topic}} in one sentence.",
+        "labels": [
+          "latest"
+        ],
+        "tags": [
+          "demo"
+        ],
+        "commitMessage": "Stage a reviewed wording change",
+        "version": 8,
+        "resolutionGraph": null
+      }
+    },
+    {
+      "id": "reject_patch_string_labels",
+      "schema_ref": "#/paths/~1api~1public~1v2~1prompts~1{name}~1versions~1{version}/patch/requestBody/content/application~1json/schema",
+      "expected_valid": false,
+      "instance": {
+        "newLabels": "production"
+      }
+    },
+    {
+      "id": "reject_patch_missing_labels",
+      "schema_ref": "#/paths/~1api~1public~1v2~1prompts~1{name}~1versions~1{version}/patch/requestBody/content/application~1json/schema",
+      "expected_valid": false,
+      "instance": {}
+    },
+    {
+      "id": "oas_accepts_latest_patch_runtime_rejects",
+      "schema_ref": "#/paths/~1api~1public~1v2~1prompts~1{name}~1versions~1{version}/patch/requestBody/content/application~1json/schema",
+      "expected_valid": true,
+      "instance": {
+        "newLabels": [
+          "latest"
+        ]
+      },
+      "note": "Intentional discrepancy demonstration. Runtime PATCH rejects latest; a generated-schema pass is not runtime acceptance."
+    },
+    {
+      "id": "oas_accepts_null_labels_runtime_rejects",
+      "schema_ref": "#/components/schemas/CreatePromptRequest",
+      "expected_valid": true,
+      "instance": {
+        "name": "demo-summary",
+        "type": "text",
+        "prompt": "Summarize {{topic}} in one sentence.",
+        "config": {
+          "temperature": 0.2
+        },
+        "labels": null,
+        "tags": [
+          "demo"
+        ],
+        "commitMessage": "Stage a reviewed wording change"
+      },
+      "note": "Intentional discrepancy demonstration. Generated OAS labels are nullable; runtime create rejects null labels."
+    },
+    {
+      "id": "oas_accepts_untyped_placeholder_runtime_rejects",
+      "schema_ref": "#/components/schemas/CreatePromptRequest",
+      "expected_valid": true,
+      "instance": {
+        "name": "demo-conversation",
+        "type": "chat",
+        "prompt": [
+          {
+            "role": "system",
+            "content": "Answer briefly."
+          },
+          {
+            "name": "history"
+          },
+          {
+            "role": "user",
+            "content": "Explain {{topic}}."
+          }
+        ],
+        "config": {
+          "temperature": 0.2
+        },
+        "labels": [],
+        "tags": [
+          "demo"
+        ]
+      },
+      "note": "Intentional discrepancy demonstration. Generated OAS makes placeholder type optional; runtime requires type=placeholder."
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Run portable tests and CLI help outside the checkout against an installed wheel."""
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import sysconfig
+import tempfile
+
+ROOT = Path(__file__).resolve().parents[1]
+MODULES = ("test_prompt_release", "test_staged_release", "test_evaluation_gate")
+COMMANDS = ("pull", "publish", "verify", "evaluate", "promote")
+
+
+def main():
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    for key in list(env):
+        if key.startswith("LANGFUSE_"):
+            env.pop(key)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    with tempfile.TemporaryDirectory(prefix="langfuse-installed-test-") as directory:
+        destination = Path(directory)
+        for module in MODULES:
+            shutil.copyfile(ROOT / (module + ".py"), destination / (module + ".py"))
+        probe = subprocess.run(
+            [sys.executable, "-c", "import langfuse_release_common as m; print(m.__file__)"],
+            cwd=destination, env=env, check=True, capture_output=True, text=True)
+        imported = Path(probe.stdout.strip()).resolve()
+        if imported == (ROOT / "langfuse_release_common.py").resolve():
+            raise RuntimeError("Smoke test imported the checkout instead of the installed wheel")
+        print("Installed module:", imported, flush=True)
+        subprocess.run([sys.executable, "-m", "unittest", "-v", *MODULES],
+                       cwd=destination, env=env, check=True)
+        suffix = ".exe" if os.name == "nt" else ""
+        for command in COMMANDS:
+            executable = Path(sysconfig.get_path("scripts")) / ("langfuse-release-" + command + suffix)
+            result = subprocess.run([str(executable), "--help"], cwd=destination,
+                                    env=env, check=True, capture_output=True, text=True)
+            if "usage:" not in result.stdout.lower():
+                raise RuntimeError("Missing help output: " + command)
+        print("Installed wheel: portable tests and all five CLI entrypoints passed.")
+
+
+if __name__ == "__main__":
+    main()
