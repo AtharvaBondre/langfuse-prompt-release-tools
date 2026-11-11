@@ -1,28 +1,27 @@
 # Validation record
 
-Recorded **11 November 2026** for 0.4.0a1. The alpha contains a standard-library release engine and a source-checkout captured-output example. Validation levels below are separate; their counts must not be added into a claim about independent integration scenarios.
-
-## Current local checks
+Recorded **11 November 2026** for **0.5.0a1**. These are separate checks, not a sum of independent integration scenarios. The [machine-readable result](validation-v05.json) contains the exact local demo assertions. The [0.4 record](validation-v04.md) and [October demo](../DEMO-RESULTS.md) remain historical evidence.
 
 | Check | Observed result |
 |---|---|
-| Full source suite, macOS ARM64 / Python 3.14.7 | 118 tests passed: 110 release/runtime tests and eight captured-output tests. |
-| Python 3.11.15 regression checks | 110 runtime tests and the eight example tests passed in separate runs. |
-| Clean wheel build/install, Python 3.14.7 | Built 0.4.0a1, installed without runtime dependencies into a fresh virtual environment. |
-| Installed wheel outside the checkout | 110 portable tests passed; all five installed CLI help commands passed. The example is source-only and is not part of the wheel. |
-| Pinned OpenAPI fixtures | 18 expectations passed against the original pinned schema `e3a2bee2a2c048adf29b8d8a18b29bd4a8bf8ac3`, SHA-256 `301fc5d38a5d4bc2dc97f517e205ea2b0c145a993eec93f490e3a958408de6f6`. Includes intentional schema/runtime discrepancies, not 18 accepted server operations. |
-| Repository skill | Frontmatter, naming and scaffold validation passed; reviewed against missing-evidence, uncertain-POST and intended-direct-mode scenarios. No claim of marketplace installation testing. |
+| Source suite, macOS ARM64 / Python 3.14.7 | 232 tests passed, including policy downgrade, missing/changed evidence, typed scores, nested graph drift, interrupted writes, adoption freshness and final verification. |
+| Fresh installed wheel outside checkout | 224 portable tests passed; all ten installed command help checks passed with no runtime dependencies. |
+| Actual official SDK/server workflow | All 14 assertions passed with Python SDK 5.2.0 and local Langfuse 4.78.0 on Linux ARM64. One real label PATCH, zero model calls. |
+| Official Experiment Action result schema | Three actual SDK-generated artifacts (failed, passing before drift, passing after drift) validated against the official v1 schema from Action v1.0.12. |
+| Optional SDK environment | `pip check` passed. |
+| Independent review | Fixed and regression-tested acceptance of post-hoc adoption locks and stale final verification on already-promoted paths. No remaining concrete findings from that review. |
 
-The source tests block real network access and use synthetic prompt state. The schema checker fetched only the pinned public schema. No Langfuse tenant, Docker deployment or model was called in this validation session.
+The live scenario staged a failing candidate, imported its real failed scores and blocked promotion; staged a passing candidate; moved a nested child label and blocked old evidence; evaluated again against a new lock; injected response loss **after a real successful PATCH**; reconciled by GET; and completed without repeating the PATCH. An actual SDK cache returned the old version and produced `not_adopted`; the subsequent uncached SDK access matched the released version and resolved hash.
 
-The [CI workflow](../.github/workflows/ci.yml) runs source tests on Ubuntu Python 3.10, 3.11 and 3.14, plus macOS/Windows Python 3.14, and builds/tests an installed wheel. Check the [actual workflow results](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/actions/workflows/ci.yml) for the commit you use; a configured matrix alone is not a passing result. POSIX permission tests do not establish Windows ACL privacy.
+This is a synthetic deterministic application using actual Langfuse services and SDK objects. The response-loss injection is not an observed server bug. Local evaluation results were complete, while remote trace persistence was explicitly `unconfirmed`; the demo policy allowed that. No LLM or customer/cloud tenant was used.
 
-## Existing deployment evidence
+The current Compose template pins Langfuse 4.78.0 images:
 
-[DEMO-RESULTS.md](../DEMO-RESULTS.md) records the **17 October 2026** Gist validation: two executions of the same 15 assertions against one disposable Langfuse v4 ARM64 image set. Each execution used six POSTs, two PATCHes and zero model calls. It demonstrated a failed synthetic output blocking promotion, staged versions, label movement, injected post-commit client failure and recognition of an already-completed promotion.
+- Web: `sha256:037188385ac6612d3494319fa060052da407b235502874c7ea79ade583c29002`
+- Worker: `sha256:175a32200b9908b283104e67b84d080381e841daa8ee6692f5bb26538df1a59e`
 
-Those results remain historical. The current integration runner's explicit staging/evaluation calls are compatible with the new defaults, but a fresh live integration run was not performed for this alpha. Source review of Langfuse v4.78.0 is not a substitute for that test.
+Infrastructure image digests remain listed in `compose.demo.json`. These identities describe the local test, not other architectures or versions.
 
-## What remains unproven
+The [CI workflow](../.github/workflows/ci.yml) tests Ubuntu Python 3.10, 3.11 and 3.14, macOS/Windows Python 3.14, and the installed wheel. Check the [actual run](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/actions/workflows/ci.yml) for your commit. POSIX file mode checks do not establish Windows ACL privacy.
 
-Cross-version live compatibility, model quality, application cache adoption, transitive child-dependency stability, multiple-writer safety, remote transactions/CAS and authenticated result provenance. See [the roadmap](roadmap.md) for bounded work on these areas.
+Still outside the proven scope: model quality, every SDK/server combination, authenticated execution attestations, fleet-wide traffic adoption and a remote atomic release/CAS guarantee. Current receipts are unsigned and require trusted execution and independently reviewed policy. See [the roadmap](roadmap.md).

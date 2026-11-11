@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "checks": [
+    "actual failing SDK scores produce a failed receipt",
+    "failing official SDK experiment blocked without PATCH",
+    "failing candidate did not move production",
+    "actual successful SDK scores pass the pinned policy",
+    "server graph includes the nested leaf",
+    "real SDK cache warmed with baseline",
+    "drift refusal identifies dependency closure",
+    "nested label drift blocked without PATCH",
+    "lost response remains explicitly uncertain",
+    "read-only reconciliation made no PATCH",
+    "committed PATCH currently reconciles completed",
+    "verified retry recognized already promoted without PATCH",
+    "actual cached consumer is reported not adopted",
+    "fresh SDK consumer is verified on released version"
+  ],
+  "completed_at_utc": "2026-11-11T11:37:04.630909+00:00",
+  "sdk": "langfuse-python/5.2.0",
+  "model_calls": 0,
+  "patches": 1,
+  "scope": "synthetic local prompts; SDK experiment; local complete results; no remote persistence claim",
+  "package_version": "0.5.0a1",
+  "server_version": "4.78.0",
+  "platform": "macOS ARM64 / Docker Linux ARM64",
+  "python": "3.14.7",
+  "source_tests": 232,
+  "installed_wheel_tests": 224,
+  "installed_commands": 10,
+  "official_action_schema_artifacts": 3
+}

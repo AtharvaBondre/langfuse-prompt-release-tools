@@ -93,7 +93,8 @@ def _inspect(client, plan, label):
 
 
 def promote(client, manifest_path, stage_report_path, *, label, apply=False, report_name=None,
-            evaluation_report=None, require_evaluation=True, allow_structural_only=False):
+            evaluation_report=None, require_evaluation=True, allow_structural_only=False,
+            dependency_lock=None):
     for field, value in (("apply", apply), ("require_evaluation", require_evaluation),
                          ("allow_structural_only", allow_structural_only)):
         if type(value) is not bool:
@@ -111,6 +112,8 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
     pinned_policy = snapshot_policy(snapshot)
     if pinned_policy is not None and (allow_structural_only or not require_evaluation or evaluation_report is None):
         raise ReleaseError("This snapshot pins an experiment policy; structural-only promotion cannot bypass it.")
+    if pinned_policy is not None and dependency_lock is None:
+        raise ReleaseError("Policy-pinned promotion requires the dependency lock captured before its experiment.")
     if snapshot.get("host") != client.host:
         raise ReleaseError("Snapshot host does not match the requested target.")
     stage_path = Path(stage_report_path)
@@ -124,6 +127,12 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
         if evaluation_path.is_symlink():
             raise ReleaseError("Evaluation report must not be a symlink.")
         evaluation_path = evaluation_path.resolve()
+    dependency_path = None
+    if dependency_lock is not None:
+        dependency_path = Path(dependency_lock)
+        if dependency_path.is_symlink():
+            raise ReleaseError("Dependency lock must not be a symlink.")
+        dependency_path = dependency_path.resolve()
     root = manifest_path.parent
     if report_name is None:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -131,7 +140,7 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
     report_path = inside(root / "reports", report_name)
     if report_path.suffix.lower() != ".json":
         raise ReleaseError("Report filename must end in .json.")
-    if report_path in (manifest_path, stage_path, evaluation_path) or any(
+    if report_path in (manifest_path, stage_path, evaluation_path, dependency_path) or any(
             report_path == inside(root, entry["file"]) for entry in snapshot["prompts"]):
         raise ReleaseError("Promotion report would overwrite its source data.")
     report = {"format_version": 2, "host": client.host, "mode": "promote", "apply": apply,
@@ -143,13 +152,17 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
                              "policy_sha256": pinned_policy["sha256"] if pinned_policy else None,
                              "file": str(evaluation_path) if evaluation_path is not None else None,
                              "status": "pending" if evaluation_path is not None else "not_requested"},
+              "dependency_lock": {"file": str(dependency_path) if dependency_path else None,
+                                  "status": "pending" if dependency_path else "not_requested"},
               "results": [plan["result"] for plan in plans]}
     # Reserve evidence before any HTTP request; do not erase an earlier attempt.
     write_report(report_path, report, create=True)
     evidence_binding = None
+    dependency_binding = None
+    evaluated_dependency = None
 
     def check_evaluation():
-        nonlocal evidence_binding
+        nonlocal evidence_binding, evaluated_dependency
         if evaluation_path is None:
             return
         # Re-read local evidence before each PATCH; no commands from reports run.
@@ -165,13 +178,41 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
         if evidence_binding is not None and current_binding != evidence_binding:
             raise ReleaseError("Evaluation evidence changed after promotion preflight.")
         evidence_binding = current_binding
+        evaluated_dependency = evidence.get("dependency_lock_sha256")
         report["evaluation"].update({"status": "passed", "sha256": current_binding,
                                      "evidence_sha256": evidence["evidence_sha256"],
                                      "required_checks": evidence["required_checks"]})
 
+    def check_dependencies():
+        nonlocal dependency_binding
+        if dependency_path is None:
+            return
+        from langfuse_release_dependencies import validate_dependency_lock
+        try:
+            _, current_snapshot = load_snapshot(manifest_path)
+            if stage_path.is_symlink() or dependency_path.is_symlink():
+                raise ReleaseError("Stage or dependency evidence changed to a symlink.")
+            current_stage = json.loads(stage_path.read_text(encoding="utf-8"))
+            if fingerprint(current_snapshot) != fingerprint(snapshot) or fingerprint(current_stage) != fingerprint(stage):
+                raise ReleaseError("Stage or snapshot changed during dependency verification.")
+            lock = validate_dependency_lock(client, dependency_path, current_snapshot, current_stage)
+            current_binding = fingerprint(lock)
+            if dependency_binding is not None and current_binding != dependency_binding:
+                raise ReleaseError("Dependency lock changed after promotion preflight.")
+            if (pinned_policy is not None or evaluated_dependency is not None) and evaluated_dependency != current_binding:
+                raise ReleaseError("Dependency lock differs from the lock captured by the evaluated task.")
+            dependency_binding = current_binding
+            report["dependency_lock_sha256"] = current_binding
+            report["dependency_lock"]["status"] = "passed"
+        except (ReleaseError, OSError, ValueError) as exc:
+            report["dependency_lock"].update(status="blocked", error=str(exc))
+            raise
+
     phase, active = "evaluation" if evaluation_path is not None else "preflight", None
     try:
         check_evaluation()
+        phase = "dependencies"
+        check_dependencies()
         phase = "preflight"
         for plan in plans:
             active = plan["result"]
@@ -196,6 +237,8 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
             intended = {**plan["payload"], "labels": [label]}
             phase = "evaluation"
             check_evaluation()
+            phase = "dependencies"
+            check_dependencies()
             phase = "patch"
             result["status"] = "submitting"
             write_report(report_path, report)
@@ -208,10 +251,18 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
             verify_exact(exact, intended, plan["target_version"])
             selected = client.get(plan["name"], label=label)
             verify_exact(selected, intended, plan["target_version"])
+            check_dependencies()
             result["status"] = "verified"
             write_report(report_path, report)
             active = None
+        # Already-promoted paths may perform no PATCH. They still need fresh
+        # evidence and closure checks before this attempt can be called green.
+        phase = "evaluation"
+        check_evaluation()
+        phase = "final_verification"
+        check_dependencies()
         report["status"] = "verified"
+        report["completed_at_utc"] = datetime.now(timezone.utc).isoformat()
         write_report(report_path, report)
         return report
     except (ReleaseError, OSError, ValueError) as exc:
@@ -241,6 +292,7 @@ def main():
     parser.add_argument("--label", required=True)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--evaluation-report", help="Recorded application checks; validated whenever supplied.")
+    parser.add_argument("--dependency-lock", help="Pre-execution dependency lock; required for policy-pinned releases.")
     policy = parser.add_mutually_exclusive_group()
     policy.add_argument("--require-evaluation", action="store_true", help="Require passing application evidence (the default).")
     policy.add_argument("--allow-structural-only", action="store_true", help="Explicitly allow legacy promotion without application evidence; any supplied evidence is still validated.")
@@ -251,6 +303,7 @@ def main():
         report = promote(Client(args.host, args.timeout), args.manifest, args.stage_report,
                          label=args.label, apply=args.apply, report_name=args.report,
                          evaluation_report=args.evaluation_report,
+                         dependency_lock=args.dependency_lock,
                          require_evaluation=not args.allow_structural_only,
                          allow_structural_only=args.allow_structural_only)
         print(f"Promotion status: {report['status']}")

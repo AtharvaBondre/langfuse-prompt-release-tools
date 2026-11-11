@@ -1,5 +1,7 @@
 # Check captured application responses
 
+For the complete 0.5 workflow with a real official SDK experiment, dependency locks, promotion, recovery and observed cache adoption, use [the SDK release demo](../docs/sdk-release-example.md). The older captured-output example below remains for legacy unpinned snapshots.
+
 This small source-checkout example turns **already-captured response strings** into the application-results format consumed by the release gate. It computes two checks: `response_json` and `nonempty_answer`. It makes no model, API or shell calls, and is not an evaluator engine or an installed wheel command.
 
 Your application or trusted capture process must record the snapshot hash, stage-report hash, exact prompt name/version and response string when it obtains that response. The example validates these existing bindings; it never attaches current version IDs to unrelated outputs after the fact.

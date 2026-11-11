@@ -104,6 +104,11 @@ def release(client, manifest_path, *, apply=False, names=None, canary=None,
     if not stage and not allow_direct_release:
         raise ReleaseError("Direct publication moves deployment labels; explicitly set allow_direct_release=True.")
     manifest_path, snapshot = load_snapshot(manifest_path)
+    # A selected experiment policy applies to this release path too. An
+    # explicit legacy direct-release flag must not skip the pinned gate.
+    from langfuse_release_policy import snapshot_policy
+    if snapshot_policy(snapshot) is not None and not stage:
+        raise ReleaseError("Policy-pinned snapshots must stage and pass evaluation before label promotion.")
     root = manifest_path.parent
     if snapshot.get("host") != client.host:
         raise ReleaseError("Snapshot host does not match the requested target.")

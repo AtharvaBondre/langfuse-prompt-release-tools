@@ -1,7 +1,7 @@
 {
   "services": {
     "langfuse-worker": {
-      "image": "docker.langfuse.com/langfuse/langfuse-worker@sha256:ca32a8fb2a214c7b5f42dd9c540c8072e41db659cb621f317911ce695ad6bca2",
+      "image": "docker.langfuse.com/langfuse/langfuse-worker@sha256:175a32200b9908b283104e67b84d080381e841daa8ee6692f5bb26538df1a59e",
       "restart": "no",
       "depends_on": {
         "postgres": {
@@ -51,7 +51,7 @@
       "platform": "linux/arm64"
     },
     "langfuse-web": {
-      "image": "docker.langfuse.com/langfuse/langfuse@sha256:67f48d12a190e4ad585249c75ae1ce172b449de3dbbe7486b8179cd28e21408e",
+      "image": "docker.langfuse.com/langfuse/langfuse@sha256:037188385ac6612d3494319fa060052da407b235502874c7ea79ade583c29002",
       "restart": "no",
       "depends_on": {
         "postgres": {

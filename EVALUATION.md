@@ -1,5 +1,7 @@
 # Supply application-check results
 
+This is the legacy result contract for unpinned snapshots. New releases should use the [pinned experiment policy](docs/experiment-evidence.md). A policy-pinned snapshot rejects this legacy receipt.
+
 Run the application's checks against the exact versions in `stage.json`. Capture those results before invoking `evaluate_langfuse_release.py`. The command records supplied results; it executes no shell commands, tests or models.
 
 Choose required case IDs for the behavior you intend to release. For example, `response_json` can check whether a captured response parses, while `required_fields` can check its field names and types. Those deterministic checks measure output structure. Use separate evaluations for answer quality, groundedness or task success.

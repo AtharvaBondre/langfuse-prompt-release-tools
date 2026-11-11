@@ -2,7 +2,7 @@
 
 This demo runs a fresh Langfuse instance and synthetic prompt checks on your computer. It uses no model provider and needs no existing Langfuse account. Keep it separate from any company or personal Langfuse deployment.
 
-The Compose template derives from the [official configuration at `e3a2bee2`](https://github.com/langfuse/langfuse/blob/e3a2bee2a2c048adf29b8d8a18b29bd4a8bf8ac3/docker-compose.yml). `compose.demo.json` pins the six image digests inspected for this run. They are **Linux arm64** images; other architectures and emulation have not been verified. The memory limits total approximately 3.5 GiB, excluding Docker overhead. Allow time for downloads and first-start migrations.
+The Compose template derives from the [official configuration at `e3a2bee2`](https://github.com/langfuse/langfuse/blob/e3a2bee2a2c048adf29b8d8a18b29bd4a8bf8ac3/docker-compose.yml). `compose.demo.json` pins Langfuse web/worker 4.78.0 plus the four infrastructure image digests. They are **Linux arm64** images; other architectures and emulation have not been verified. The memory limits total approximately 3.5 GiB, excluding Docker overhead. Allow time for downloads and first-start migrations.
 
 Only the web service publishes a port: `127.0.0.1:13830`. PostgreSQL, Redis, ClickHouse and MinIO remain on the Compose network. Telemetry and the in-app agent are disabled. This small setup covers prompt release behavior; media uploads and general production operations are outside its scope.
 

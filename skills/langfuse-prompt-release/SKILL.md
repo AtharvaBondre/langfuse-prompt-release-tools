@@ -1,43 +1,43 @@
 ---
 name: langfuse-prompt-release
-description: Review and stage Langfuse prompt edits, bind actual application-check results to exact versions, and promote a deployment label with drift checks and write reconciliation.
+description: Pin release policy, stage Langfuse prompts, bind official experiment results and resolved dependencies, promote a label, reconcile interruptions and verify actual SDK consumer adoption.
 ---
 
 # Release reviewed Langfuse prompts
 
-Use the commands from [langfuse-prompt-release-tools](https://github.com/AtharvaBondre/langfuse-prompt-release-tools). Version 0.4.0a1 stages by default and requires evaluation evidence for promotion. This skill is independent of Langfuse's official general-purpose `langfuse` skill and can be used alongside it.
+Use [langfuse-prompt-release-tools](https://github.com/AtharvaBondre/langfuse-prompt-release-tools) 0.5.0a1. This independent release workflow complements Langfuse's official SDK, experiments, resolver and general-purpose skill.
 
 ## Select the release
 
-Use the host, project, prompt names and deployment label the user selected. Continue within their existing authorization; do not infer authority to change another target. Read project keys from `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`, keeping their values out of commands, reports and messages.
+Use the host, project, prompt names and deployment label already selected by the user. Continue within existing authorization. Read project credentials from the environment or secret manager; never print or save them in prompts, reports or commands.
 
-Confirm which installed commands are available with `--help`. Source scripts and the five `langfuse-release-*` entrypoints run the same functions. Installation and full examples are in the [README](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/blob/main/README.md).
+Confirm installed CLI arguments with `--help`. The ten commands and their source modules are listed in the repository's PACKAGING.md. Core commands require Python 3.10+; the optional official SDK example requires 3.11+.
 
-Creation always advances `latest`. Account for consumers of that label before staging. Explicit tags affect all versions. A stage is not invisible to all applications.
+Staging advances `latest`. Account for consumers of that label. Explicit tags affect every version.
 
-## Review, stage, evaluate, promote
+## Execute the release
 
-1. Export the selected label and explicit names into an empty private directory with `langfuse-release-pull`. Keep `prompt-index.json` intact; edit the prompt files.
-2. Preview with `langfuse-release-publish --manifest <manifest> --report <new-name>`. Review the diff, baseline and contract changes. `--allow-contract-change` is for an intended reviewed interface change, not a way to bypass unexplained drift.
-3. Apply the reviewed stage with `--apply`, optionally selecting the first prompt with `--canary`. Review per-item versions and status before proceeding. Canary readback checks stored content, not model quality.
-4. Run the application's checks against the **exact versions in the completed stage report**. Use the real consuming SDK where compilation, child dependencies or caching matter. Preserve its source results.
-5. Record those results with `langfuse-release-evaluate --manifest <manifest> --stage-report <stage> --results <source-results> --require-check <id> --report <new-name>`, repeating required check IDs. See the [result schema](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/blob/main/EVALUATION.md). The recorder runs no commands or models. Never invent a check, replace a failure with a fixture pass, or call a JSON-shape check an answer-quality evaluation.
-6. Preview `langfuse-release-promote` with the manifest, stage report, chosen `--label` and `--evaluation-report`. Apply within the selected scope with `--apply`. Use a fresh report filename for each attempt, then run `langfuse-release-verify` against the completed promotion report.
+1. Export the explicit baseline with `langfuse-release-pull` into a new private directory. Edit the prompt files and review their diff.
+2. Review the application's independent policy: exact dataset cases and hashes, task/evaluator revisions, model/config identity, typed score thresholds and whether remote persistence is required. Bind it before staging with `langfuse-release-policy`. Never weaken policy to make a result pass.
+3. Preview and apply staging with `langfuse-release-publish`. Review every changed target and created version. The interface-change guard is not a model-quality or JSON Schema test.
+4. Capture a dependency lock with `langfuse-release-dependencies`, including SDK/compiler identity. Use the server resolver; do not invent another prompt language. Lock even dependency-free roots.
+5. Run the application's actual task with the official SDK or Experiment Action. Initialize execution capture before the run with the manifest, stage and lock. Fetch exact staged versions inside the task, record returned objects and resolved hashes before evaluating their outputs. Never reconstruct a supposed execution by adding version numbers afterward.
+6. Import original results and capture with `langfuse-release-import-experiment`. Require every pinned case/check and preserve typed scores. Distinguish complete local results from remote trace/score persistence; `flush()` alone does not establish persistence.
+7. Preview `langfuse-release-promote` with the evaluation receipt, same dependency lock and explicit label. Apply within the selected authorization. Policy-pinned snapshots cannot bypass gates through direct publication, legacy receipts, structural-only mode or a missing lock. Preserve all input evidence through the final verification.
+8. Capture real post-promotion SDK accesses using `capture_sdk_observation`, with consumer/deployment/request identity and actual cache/fallback metadata. Record/check adoption using `langfuse-release-adoption` and an independently supplied expected consumer set. A label GET does not prove consumer adoption. A receipt covers observed accesses, not an entire fleet.
 
-Keep the snapshot, edited prompts, stage report and original result file unchanged through promotion. Receipts bind their hashes, versions and required checks; they are unsigned attestations from a trusted runner, not proof of execution or an authorization boundary.
+See docs/experiment-evidence.md, docs/dependencies-and-adoption.md and docs/sdk-release-example.md for schemas and runnable examples. The deterministic example makes no LLM calls and must not be presented as model evaluation.
 
-The contract guard compares variable sets, placeholders and `OUTPUT_SCHEMA` blocks. It does not validate JSON Schema or freeze dependencies referenced by movable labels. Label readback does not establish cache refresh or application adoption.
+## Handle interruptions
 
-## A stopped write
+Run `langfuse-release-reconcile` against the saved attempt. It performs only GETs and writes a separate private report. A lost POST with matching remote content remains unknown; do not retry the creation automatically. A known label target can be observed as completed without proving which writer moved it.
 
-A batch can stop after earlier items succeeded. Read the per-item outcomes and reconcile remote state before another write. A timeout or malformed response can follow a completed mutation.
+A partial batch can retain earlier changes. Read per-item outcomes and preserve unknown-write boundaries. Do not automatically roll back, delete, or resume conflicting operations. Explicitly reviewed promotion recovery can recognize already-promoted targets without repeating PATCH; final evidence and dependency checks still run.
 
-For an uncertain promotion, an unchanged valid receipt and a matching remote target let the promoter recognize prior completion without issuing that PATCH again. For an uncertain creation, inspect remote versions first; POST is not idempotent and rerunning can create a duplicate. Do not automatically roll back, delete or continue a conflicting batch.
+Coordinate writers. The server API has no transaction or compare-and-swap for this workflow, and local reads cannot eliminate concurrent changes. Hashes are unsigned evidence from trusted producers, not authenticated attestations or an authorization boundary.
 
-Coordinate a single writer. Preflight and per-item checks cannot eliminate the remote GET-to-write race. A disk error can also leave the newest outcome unrecorded. Stop on unresolved outcomes instead of interpreting a missing receipt as proof that nothing happened.
+## Legacy compatibility
 
-## Explicit compatibility modes
+Unpinned legacy exports still support the old recorder and explicit direct/structural modes. Never use those modes to bypass a selected policy or failed experiment. A legacy promotion without its own pre-promotion lock binding cannot establish verified adoption. See docs/migration-v05.md.
 
-`--allow-direct-release` creates with baseline non-`latest` labels, bypassing separate evaluation and promotion. `--allow-structural-only` allows promotion without evaluation; any supplied receipt is still validated. Do not add either option to get past failed checks. Use one only when the user intends that release behavior and the target scope is already authorized. [Migration details](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/blob/main/docs/migration-v03.md).
-
-Report created versions, promoted labels, unchanged/skipped items, required checks and unresolved outcomes. Distinguish stored-content verification, application tests and model-quality evaluation. Keep prompts and receipts private.
+Report created versions, promoted labels, failed checks, reconciliation classifications and observed consumer outcomes separately. Include remaining unknowns; never equate stored content, application contract checks, model quality and audience outcomes.

@@ -21,6 +21,8 @@ recursive-include docs *.md *.json
 recursive-include skills *.md
 recursive-include tools *.py
 include test_captured_outputs.py
+include test_experiment_policy.py test_reconciliation.py
+include test_release_dependencies.py test_release_adoption.py test_release_integration.py
 recursive-include examples *.py *.md
 include .gitignore
 recursive-include .github *.yml *.md

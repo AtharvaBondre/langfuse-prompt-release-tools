@@ -9,8 +9,11 @@ import sysconfig
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULES = ("test_prompt_release", "test_staged_release", "test_evaluation_gate")
-COMMANDS = ("pull", "publish", "verify", "evaluate", "promote")
+MODULES = ("test_prompt_release", "test_staged_release", "test_evaluation_gate",
+           "test_experiment_policy", "test_reconciliation", "test_release_dependencies",
+           "test_release_adoption", "test_release_integration")
+COMMANDS = ("pull", "publish", "verify", "evaluate", "promote", "policy",
+            "import-experiment", "reconcile", "dependencies", "adoption")
 
 
 def main():
@@ -40,7 +43,7 @@ def main():
                                     env=env, check=True, capture_output=True, text=True)
             if "usage:" not in result.stdout.lower():
                 raise RuntimeError("Missing help output: " + command)
-        print("Installed wheel: portable tests and all five CLI entrypoints passed.")
+        print("Installed wheel: portable tests and all ten CLI entrypoints passed.")
 
 
 if __name__ == "__main__":

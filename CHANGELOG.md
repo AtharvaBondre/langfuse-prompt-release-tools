@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0a1 — 2026-11-11
+
+- Pin independently reviewed experiment policy before staging; block all legacy release bypasses for pinned snapshots.
+- Import official Action v1 or normalized SDK results with exact cases, typed thresholds, execution identity and task-time returned prompt capture.
+- Bind server-resolved transitive dependencies to evaluation and recheck before/after promotion writes and final completion.
+- Reconcile interrupted creates/promotions with GET-only reports; retain unknown POST outcomes.
+- Verify actual SDK consumer observations against the release lock, consumer revisions, freshness and fallback state.
+- Add a runnable official SDK experiment with failing/passing cases, nested dependency drift, injected response loss and cached/fresh adoption.
+- Package ten commands; retain the stdlib core and optional SDK dependency.
+
+See [migration](docs/migration-v05.md) and [validation](docs/validation.md) for compatibility and tested scope.
+
 ## 0.4.0a1 — 2026-11-11
 
 First independent repository release, based on the public 0.3 Gist.
