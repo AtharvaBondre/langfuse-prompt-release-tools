@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0a1 — 2026-11-11
+
+- Transfer original release evidence in path-safe portable bundles and verify independently pinned GitHub CI provenance.
+- Require fresh, complete, typed remote experiment evidence under format 2 policies; retain explicit legacy behavior.
+- Capture actual Python and JavaScript SDK objects through one validation and hashing contract.
+- Check rollout samples across reviewed consumer/deployment identities and time buckets; reject replay and mixed releases.
+- Add real SDK/server CI on Langfuse 4.59.0 and 4.78.0, Node 22/24 capture tests, official-schema fixtures and fifteen installed commands.
+- Fix JavaScript BOOLEAN score wire values, preserve recorded fixture bytes on Windows, and count signature-verification time toward freshness.
+
+See [migration](docs/migration-v06.md), [validation](docs/validation.md) and the [next roadmap](docs/roadmap.md).
+
 ## 0.5.0a1 — 2026-11-11
 
 - Pin independently reviewed experiment policy before staging; block all legacy release bypasses for pinned snapshots.

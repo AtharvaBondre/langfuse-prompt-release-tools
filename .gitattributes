@@ -1,0 +1,2 @@
+# Preserved source artifacts are compared byte-for-byte on every platform.
+tests/fixtures/sdk-results/* -text
