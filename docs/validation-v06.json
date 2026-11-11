@@ -1,0 +1,400 @@
+{
+  "format_version": 1,
+  "package_version": "0.6.0a1",
+  "status": "passed",
+  "recorded_at_utc": "2026-11-11T13:04:54.812382+00:00",
+  "implementation_revision": "4117f434614b1aa1a49e12e2371851f05709ce1c",
+  "source_suite": {
+    "executed": 383,
+    "passed": 383,
+    "python": "3.14.7",
+    "platform": "macOS ARM64",
+    "schema_dependency": "jsonschema 4.26.0"
+  },
+  "installed_wheel": {
+    "executed": 368,
+    "passed": 367,
+    "skipped": 1,
+    "skip_reason": "Optional schema dependency absent in stdlib-only environment; dedicated CI schema job passes",
+    "cli_help_checks": 15
+  },
+  "source_archive": {
+    "executed": 383,
+    "passed": 383,
+    "original_fixture_bytes_preserved": true,
+    "credentials_or_node_modules_included": false
+  },
+  "javascript": {
+    "source_tests_passed": 18,
+    "installed_package_tests_passed": 18,
+    "sdk": "6.1.1",
+    "ci_nodes": [
+      "22",
+      "24"
+    ],
+    "python_sidecar": "installed wheel outside checkout"
+  },
+  "ci": {
+    "tests": "https://github.com/AtharvaBondre/langfuse-prompt-release-tools/actions/runs/43025012317",
+    "signed_evidence": "https://github.com/AtharvaBondre/langfuse-prompt-release-tools/actions/runs/43025012383",
+    "live_sdk": "https://github.com/AtharvaBondre/langfuse-prompt-release-tools/actions/runs/43025012274",
+    "jobs_passed": 13
+  },
+  "live": [
+    {
+      "status": "passed",
+      "scope": "Synthetic local SDK/server compatibility; no model or cloud calls",
+      "server_version": "4.78.0",
+      "platform": "linux/amd64",
+      "images": {
+        "clickhouse": "clickhouse/clickhouse-server@sha256:8ecb92fa564142a2bad5fef7b39f89af7265ddbfd782693b15f002ca0f70be14",
+        "minio": "cgr.dev/chainguard/minio@sha256:b51b70a1be6a3ff9d32b5474b178fddcca84e71a1c5b9028a237f4401943d309",
+        "redis": "redis@sha256:cd745595f143052dd6a743bc5651d3ce4b03979fe5c99c7fcfab73461f6f217b",
+        "postgres": "postgres@sha256:3cec7eb015ba8adb28139fa5c83b8489cdf0e666e53dfdf20f598ae0cc8739e3",
+        "langfuse-web": "docker.langfuse.com/langfuse/langfuse@sha256:129cb76d4cdf6b2be2beaffe5c4b3b8e56af91cdb3e95d47cef0ef73583e7e1d",
+        "langfuse-worker": "docker.langfuse.com/langfuse/langfuse-worker@sha256:74c8020966a9556b25c21e368b64c9cfe24e1df1c4f76569aee6d230c9443de5"
+      },
+      "memory_limits": {
+        "langfuse-web": "2048m",
+        "langfuse-worker": "1536m",
+        "clickhouse": "1536m",
+        "minio": "384m",
+        "postgres": "512m",
+        "redis": "256m"
+      },
+      "docker_context": "default",
+      "host": "http://127.0.0.1:13830",
+      "source_commit": "fde4548d7a65e5560a1e54c7697423b6eec2e920",
+      "checks": [
+        {
+          "demo": "verified_release_demo",
+          "check": "python: required remote evidence cannot be replaced by flush"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "python: actual remote experiment, cases and typed scores persisted"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "python: fresh remote evidence passes reviewed policy"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "python: actual SDK compiled nested server-resolved dependencies"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "python: label promotion verified on server"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "python: portable bundle validates preserved remote evidence"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript-failing: required remote evidence cannot be replaced by flush"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript-failing: actual remote experiment, cases and typed scores persisted"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: real failing evaluator remains failed after persistence"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: failed experiment leaves baseline label unchanged"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript: required remote evidence cannot be replaced by flush"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript: actual remote experiment, cases and typed scores persisted"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript: fresh remote evidence passes reviewed policy"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript: actual SDK compiled nested server-resolved dependencies"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: transitive label drift refuses promotion"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: dependency drift leaves deployment label unchanged"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: rerun with new lock persisted fully"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript: label promotion verified on server"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript: portable bundle validates preserved remote evidence"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: actual warm cache remains on old version"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: bypassing cache observes released version"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: missing prompt fallback is recorded explicitly"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "Rollout: both actual SDK consumers cover both time buckets"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "Rollout: replayed request cannot increase adoption evidence"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "actual failing SDK scores produce a failed receipt"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "failing official SDK experiment blocked without PATCH"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "failing candidate did not move production"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "actual successful SDK scores pass the pinned policy"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "server graph includes the nested leaf"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "real SDK cache warmed with baseline"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "drift refusal identifies dependency closure"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "nested label drift blocked without PATCH"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "lost response remains explicitly uncertain"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "read-only reconciliation made no PATCH"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "committed PATCH currently reconciles completed"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "verified retry recognized already promoted without PATCH"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "actual cached consumer is reported not adopted"
+        },
+        {
+          "demo": "sdk_release_demo",
+          "check": "fresh SDK consumer is verified on released version"
+        }
+      ],
+      "model_calls": 0,
+      "health": {
+        "status": 200,
+        "version": "4.78.0",
+        "project_identity_verified": true
+      },
+      "api_probes": [
+        {
+          "path": "/api/public/experiments?fromStartTime=2026-11-11T12%3A50%3A30.068607%2B00%3A00&toStartTime=2026-11-11T12%3A55%3A30.068607%2B00%3A00&limit=1&fields=core",
+          "http_status": 200
+        },
+        {
+          "path": "/api/public/experiment-items?fromStartTime=2026-11-11T12%3A50%3A30.068607%2B00%3A00&toStartTime=2026-11-11T12%3A55%3A30.068607%2B00%3A00&experimentId=00000000000000000000000000000000&limit=1&fields=core%2Cdataset%2Cio",
+          "http_status": 200
+        },
+        {
+          "path": "/api/public/v3/scores?limit=1&fields=subject",
+          "http_status": 200
+        }
+      ],
+      "support_claim": "Full requested synthetic SDK/server workflow passed",
+      "cleanup_status": "complete",
+      "completed_at_utc": "2026-11-11T12:56:10.955937+00:00"
+    },
+    {
+      "status": "passed",
+      "scope": "Synthetic local SDK/server compatibility; no model or cloud calls",
+      "server_version": "4.59.0",
+      "platform": "linux/amd64",
+      "images": {
+        "clickhouse": "clickhouse/clickhouse-server@sha256:8ecb92fa564142a2bad5fef7b39f89af7265ddbfd782693b15f002ca0f70be14",
+        "minio": "cgr.dev/chainguard/minio@sha256:b51b70a1be6a3ff9d32b5474b178fddcca84e71a1c5b9028a237f4401943d309",
+        "redis": "redis@sha256:cd745595f143052dd6a743bc5651d3ce4b03979fe5c99c7fcfab73461f6f217b",
+        "postgres": "postgres@sha256:3cec7eb015ba8adb28139fa5c83b8489cdf0e666e53dfdf20f598ae0cc8739e3",
+        "langfuse-web": "docker.langfuse.com/langfuse/langfuse@sha256:cee4fce72336daca27d224f35bc2431e302b045f5ab7e1b0c6c876a47e340b36",
+        "langfuse-worker": "docker.langfuse.com/langfuse/langfuse-worker@sha256:1bb9b0176ad7917202aab4cb6ae5452f783c32bbfbe4bf5489390bbdda546fc1"
+      },
+      "memory_limits": {
+        "langfuse-web": "2048m",
+        "langfuse-worker": "1536m",
+        "clickhouse": "1536m",
+        "minio": "384m",
+        "postgres": "512m",
+        "redis": "256m"
+      },
+      "docker_context": "default",
+      "host": "http://127.0.0.1:13830",
+      "source_commit": "fde4548d7a65e5560a1e54c7697423b6eec2e920",
+      "checks": [
+        {
+          "demo": "verified_release_demo",
+          "check": "python: required remote evidence cannot be replaced by flush"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "python: actual remote experiment, cases and typed scores persisted"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "python: fresh remote evidence passes reviewed policy"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "python: actual SDK compiled nested server-resolved dependencies"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "python: label promotion verified on server"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "python: portable bundle validates preserved remote evidence"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript-failing: required remote evidence cannot be replaced by flush"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript-failing: actual remote experiment, cases and typed scores persisted"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: real failing evaluator remains failed after persistence"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: failed experiment leaves baseline label unchanged"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript: required remote evidence cannot be replaced by flush"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript: actual remote experiment, cases and typed scores persisted"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript: fresh remote evidence passes reviewed policy"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript: actual SDK compiled nested server-resolved dependencies"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: transitive label drift refuses promotion"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: dependency drift leaves deployment label unchanged"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: rerun with new lock persisted fully"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript: label promotion verified on server"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "javascript: portable bundle validates preserved remote evidence"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: actual warm cache remains on old version"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: bypassing cache observes released version"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "JavaScript: missing prompt fallback is recorded explicitly"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "Rollout: both actual SDK consumers cover both time buckets"
+        },
+        {
+          "demo": "verified_release_demo",
+          "check": "Rollout: replayed request cannot increase adoption evidence"
+        }
+      ],
+      "model_calls": 0,
+      "health": {
+        "status": 200,
+        "version": "4.59.0",
+        "project_identity_verified": true
+      },
+      "api_probes": [
+        {
+          "path": "/api/public/experiments?fromStartTime=2026-11-11T12%3A50%3A55.802368%2B00%3A00&toStartTime=2026-11-11T12%3A55%3A55.802368%2B00%3A00&limit=1&fields=core",
+          "http_status": 200
+        },
+        {
+          "path": "/api/public/experiment-items?fromStartTime=2026-11-11T12%3A50%3A55.802368%2B00%3A00&toStartTime=2026-11-11T12%3A55%3A55.802368%2B00%3A00&experimentId=00000000000000000000000000000000&limit=1&fields=core%2Cdataset%2Cio",
+          "http_status": 200
+        },
+        {
+          "path": "/api/public/v3/scores?limit=1&fields=subject",
+          "http_status": 200
+        }
+      ],
+      "support_claim": "Full requested synthetic SDK/server workflow passed",
+      "cleanup_status": "complete",
+      "completed_at_utc": "2026-11-11T12:56:55.838504+00:00"
+    }
+  ],
+  "limits": [
+    "Synthetic deterministic applications; no LLM/model quality claim",
+    "Actual rollout evidence covers four accesses across two SDK consumers over eight seconds, not fleet-wide traffic",
+    "Signed CI proves selected builder/artifact identity; its rollout fixture is explicitly synthetic historical evidence",
+    "Only the two listed server versions tested, not every intervening release",
+    "POSIX modes do not establish Windows ACL privacy"
+  ]
+}

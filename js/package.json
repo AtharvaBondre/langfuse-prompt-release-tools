@@ -10,7 +10,8 @@
   "exports": "./capture.mjs",
   "files": [
     "capture.mjs",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "test": "node --test test/*.test.mjs"

@@ -2,7 +2,7 @@
 
 A completed local experiment and `flush()` do not prove that Langfuse received every required case and score. This read-only verifier compares the expected results with Langfuse's public experiment and score APIs. Missing exported or sampled-out data remains `pending`; it never becomes confirmed merely because a wait expired.
 
-The audited combinations are the Python SDK 5.2 and JavaScript SDK 6.1.1 stored-IO contracts with public APIs in Langfuse 4.78.0. Older servers without these endpoints fail explicitly. The verifier uses the standard library; it does not run an experiment, submit scores, change a prompt or call a model.
+The audited combinations are the Python SDK 5.2 and JavaScript SDK 6.1.1 stored-IO contracts with public APIs in Langfuse 4.59.0 and 4.78.0, both tested on Linux AMD64. Other server/SDK combinations are not validated by this release. Servers without these endpoints fail explicitly. The verifier uses the standard library; it does not run an experiment, submit scores, change a prompt or call a model.
 
 ## API
 

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -12,7 +13,10 @@ const captureUrl = process.env.RELEASE_CAPTURE_MODULE
   ? (process.env.RELEASE_CAPTURE_MODULE.startsWith('file:') ? process.env.RELEASE_CAPTURE_MODULE : pathToFileURL(resolve(process.env.RELEASE_CAPTURE_MODULE)).href)
   : new URL('../capture.mjs', import.meta.url).href;
 const { ReleaseCapture, snapshotPrompt, sdkVersion } = await import(captureUrl);
-const { TextPromptClient, ChatPromptClient } = await import(new URL('./node_modules/@langfuse/client/dist/index.mjs', captureUrl));
+// Resolve the same SDK instance even when npm hoists it beside this package.
+const sdkPackageUrl = new URL('../package.json', pathToFileURL(createRequire(captureUrl).resolve('@langfuse/client')));
+const sdkPackage = JSON.parse(readFileSync(sdkPackageUrl, 'utf8'));
+const { TextPromptClient, ChatPromptClient } = await import(new URL(sdkPackage.exports['.'].import.default, sdkPackageUrl));
 const python = process.env.RELEASE_PYTHON || 'python3';
 const pythonPath = process.env.RELEASE_PYTHON_PATH || resolve(dirname(fileURLToPath(captureUrl)), '..');
 const options = { python, pythonPath };

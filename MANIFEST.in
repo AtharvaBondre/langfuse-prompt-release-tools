@@ -36,3 +36,4 @@ include test_sdk_result_fixtures.py
 recursive-include tests/fixtures *.json *.md *.txt
 include tests/fixtures/sdk-results/LICENSE.experiment-action
 include test_live_ci_orchestration.py .gitattributes
+include js/LICENSE

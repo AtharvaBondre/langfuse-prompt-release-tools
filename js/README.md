@@ -5,7 +5,7 @@ into the Python release evidence contract. It reuses Python's canonical hashing,
 policy checks and capture lifecycle. It does not implement another experiment
 runner, prompt compiler or signing scheme.
 
-The package is private and lives in this repository. Use **Node 22+**, the pinned
+The package lives in this repository and is also included as a GitHub release tarball. npm registry publication is disabled. Use **Node 22+**, the pinned
 `@langfuse/client` dependency and a trusted Python environment with this release
 package installed. The Python core needs Python 3.10+; the separate official
 Python SDK example has its own Python version requirement.
@@ -18,7 +18,7 @@ npm ci
 npm test
 ```
 
-The verified offline test combination is Node 22.23.2, JS SDK 6.1.1 and the Python
+The verified offline combinations include Node 22/24, JS SDK 6.1.1 and the Python
 release engine. These tests construct official SDK objects without calling a
 server. Actual server compatibility is a separate runnable-example/CI check;
 see the repository validation and compatibility documentation.
