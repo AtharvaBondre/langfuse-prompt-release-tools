@@ -1,0 +1,69 @@
+{
+  "schema_version": "v1",
+  "action_metadata": {
+    "producer": "javascript-sdk-example",
+    "sdk_version": "6.1.1"
+  },
+  "results": [
+    {
+      "script_path": "js/sdk-experiment.mjs",
+      "script_name": "sdk-experiment.mjs",
+      "runtime": "node",
+      "duration_ms": 4689,
+      "status": "passed",
+      "error": null,
+      "langfuse_experiment_url": "http://127.0.0.1:13830/project/demo-project-232341c2cb8245b19fd2af06343944bd/experiments/results?baseline=ae8875c1a6a0c337",
+      "experiment_result": {
+        "experiment_id": "ae8875c1a6a0c337",
+        "run_name": "js-release-contract-demo - 2026-11-11T12:38:40.031Z",
+        "item_results": [
+          {
+            "item": {
+              "id": "one",
+              "input": {
+                "answer": "A pinned prompt version is immutable."
+              },
+              "expected_output": {
+                "answer": "A pinned prompt version is immutable."
+              }
+            },
+            "output": {
+              "answer": "wrong A pinned prompt version is immutable."
+            },
+            "trace_id": "5b4b092f4f24026e792478da2159202e",
+            "evaluations": [
+              {
+                "name": "answer-exact",
+                "value": false,
+                "data_type": "BOOLEAN"
+              }
+            ]
+          },
+          {
+            "item": {
+              "id": "two",
+              "input": {
+                "answer": "A label can move between versions."
+              },
+              "expected_output": {
+                "answer": "A label can move between versions."
+              }
+            },
+            "output": {
+              "answer": "wrong A label can move between versions."
+            },
+            "trace_id": "954166744776fe3561249166a8fc211d",
+            "evaluations": [
+              {
+                "name": "answer-exact",
+                "value": false,
+                "data_type": "BOOLEAN"
+              }
+            ]
+          }
+        ],
+        "run_evaluations": []
+      }
+    }
+  ]
+}

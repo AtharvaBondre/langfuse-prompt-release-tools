@@ -1,0 +1,88 @@
+{
+  "format_version": 1,
+  "record_type": "recorded_sdk_result_compatibility_fixtures",
+  "recorded_on": "2026-11-11",
+  "authentication": "unsigned_local_record",
+  "scope": {
+    "server_version": "4.78.0",
+    "server_scope": "disposable local Langfuse instance",
+    "data": "two synthetic JSON-answer cases; no customer datasets or personal information",
+    "execution": "actual official SDK experiment runners with deterministic local tasks; no model-provider calls",
+    "projection": "repository example adapters projected actual SDK results into official Action v1 JSON; the GitHub Action did not execute these runs",
+    "identifiers": "loopback URL and disposable project, experiment, trace IDs retained exactly; not credentials",
+    "limits": [
+      "compatibility fixtures do not prove remote persistence, authenticated CI origin, real-user traffic or model quality",
+      "SDK versions and server version describe the recorded runs, not a claimed version-support range",
+      "script status passed means execution completed, not that every evaluator passed",
+      "JavaScript numeric BOOLEAN wire values 0/1 are explicitly projected to JSON false/true by the example adapter"
+    ]
+  },
+  "schema": {
+    "file": "result-json.v1.schema.json",
+    "sha256": "8263981ed3bf6c48a62bf19d7e4f9a2edf9b6275197eaedf36894467a23df35f",
+    "source_sha256": "8263981ed3bf6c48a62bf19d7e4f9a2edf9b6275197eaedf36894467a23df35f",
+    "byte_identical_to_source": true,
+    "repository": "https://github.com/langfuse/experiment-action",
+    "version": "v1.0.12",
+    "commit": "c7c4efe432e37d4e3693a018de469233c0018de4",
+    "source_url": "https://github.com/langfuse/experiment-action/blob/c7c4efe432e37d4e3693a018de469233c0018de4/schemas/result-json.v1.schema.json",
+    "license_file": "LICENSE.experiment-action",
+    "validation": {
+      "validator": "jsonschema",
+      "version": "4.26.0",
+      "draft": "2020-12",
+      "format_checker": true,
+      "result": "passed",
+      "checked_at_utc": "2026-11-11T12:50:46.829614+00:00",
+      "validator_python_version": "3.14.7",
+      "validated_files": [
+        "python-sdk-5.2.0-passing.action-v1.json",
+        "javascript-sdk-6.1.1-failing.action-v1.json"
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "python-sdk-5.2.0-passing.action-v1.json",
+      "sha256": "ed4f5b9b17a918268806db32ce0eeeb6e70a6c4258325410954be2bf7c5e4f5a",
+      "size_bytes": 2432,
+      "source_run": "implementation-v06/full-demo-attempt2/python/results.json",
+      "source_sha256": "ed4f5b9b17a918268806db32ce0eeeb6e70a6c4258325410954be2bf7c5e4f5a",
+      "byte_identical_to_source": true,
+      "redactions": [],
+      "producer": "langfuse-python-sdk",
+      "sdk_version": "5.2.0",
+      "runtime": "python",
+      "script_path": "examples/sdk_experiment.py",
+      "sdk_version_evidence": "recorded run environment: installed langfuse package 5.2.0",
+      "script_status": "passed",
+      "expected_boolean_values": [
+        true,
+        true
+      ],
+      "schema_validated": true,
+      "persistence_claim": "none; result projection alone does not verify remote persistence"
+    },
+    {
+      "file": "javascript-sdk-6.1.1-failing.action-v1.json",
+      "sha256": "37cd8e5471d7a13eb2c58bbac7bbf9e88acb9eb77c5b5dc9605b2804ffdf7476",
+      "size_bytes": 2057,
+      "source_run": "implementation-v06/full-demo-attempt2/javascript-failing/results.json",
+      "source_sha256": "37cd8e5471d7a13eb2c58bbac7bbf9e88acb9eb77c5b5dc9605b2804ffdf7476",
+      "byte_identical_to_source": true,
+      "redactions": [],
+      "producer": "langfuse-javascript-sdk",
+      "sdk_version": "6.1.1",
+      "runtime": "node",
+      "script_path": "js/sdk-experiment.mjs",
+      "sdk_version_evidence": "recorded result action_metadata and installed SDK package",
+      "script_status": "passed",
+      "expected_boolean_values": [
+        false,
+        false
+      ],
+      "schema_validated": true,
+      "persistence_claim": "none; result projection alone does not verify remote persistence"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "schema_version": "v1",
+  "action_metadata": {
+    "producer": "sdk-example"
+  },
+  "results": [
+    {
+      "script_path": "examples/sdk_experiment.py",
+      "script_name": "sdk_experiment.py",
+      "runtime": "python",
+      "duration_ms": 7857,
+      "status": "passed",
+      "error": null,
+      "langfuse_experiment_url": "http://127.0.0.1:13830/project/demo-project-232341c2cb8245b19fd2af06343944bd/experiments/results?baseline=6867d5263523efc5",
+      "experiment_result": {
+        "experiment_id": "6867d5263523efc5",
+        "run_name": "release-contract-demo - 2026-11-11T12:37:07.626902Z",
+        "item_results": [
+          {
+            "item": {
+              "id": "one",
+              "input": {
+                "answer": "A pinned prompt version is immutable."
+              },
+              "expected_output": {
+                "answer": "A pinned prompt version is immutable."
+              }
+            },
+            "input": {
+              "answer": "A pinned prompt version is immutable."
+            },
+            "expected_output": {
+              "answer": "A pinned prompt version is immutable."
+            },
+            "output": {
+              "answer": "A pinned prompt version is immutable."
+            },
+            "trace_id": "42eb8c552b5f4528f724ddcbb8780d3f",
+            "evaluations": [
+              {
+                "name": "answer-exact",
+                "value": true,
+                "data_type": "BOOLEAN"
+              }
+            ]
+          },
+          {
+            "item": {
+              "id": "two",
+              "input": {
+                "answer": "A label can move between versions."
+              },
+              "expected_output": {
+                "answer": "A label can move between versions."
+              }
+            },
+            "input": {
+              "answer": "A label can move between versions."
+            },
+            "expected_output": {
+              "answer": "A label can move between versions."
+            },
+            "output": {
+              "answer": "A label can move between versions."
+            },
+            "trace_id": "4f7c3e198174acc82cb3855d020ab944",
+            "evaluations": [
+              {
+                "name": "answer-exact",
+                "value": true,
+                "data_type": "BOOLEAN"
+              }
+            ]
+          }
+        ],
+        "run_evaluations": []
+      }
+    }
+  ]
+}
