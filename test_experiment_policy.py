@@ -120,6 +120,49 @@ class ExperimentPolicyTests(unittest.TestCase):
         values = self.imported(producer="langfuse-python-sdk")
         self.assertEqual("langfuse-python-sdk", values[-2]["producer"]["kind"])
 
+    def test_python_sdk_optional_policy_rejects_node_and_accepts_python(self):
+        values = self.prepare(producer="langfuse-python-sdk", remote="optional")
+        source, capture = values[6:8]
+        self.assertEqual(1, values[8]["policy"]["format_version"])
+        self.assertEqual("optional", values[8]["policy"]["remote_export"])
+        source["results"][0]["runtime"] = "node"
+        self.save(values[4], values[5], source, capture)
+        with self.assertRaisesRegex(common.ReleaseError, "runtime differs from the pinned SDK producer"):
+            adapter.import_experiment(*values[2:6], report_name="wrong-runtime.json")
+        self.assertEqual([], values[1].requests)
+        source["results"][0]["runtime"] = "python"
+        self.save(values[4], values[5], source, capture)
+        report = adapter.import_experiment(*values[2:6], report_name="python-runtime.json")
+        self.assertEqual("passed", report["status"])
+        self.assertEqual("langfuse-python-sdk", report["producer"]["kind"])
+
+    def test_javascript_sdk_optional_policy_rejects_python_and_accepts_node(self):
+        values = self.prepare(producer="langfuse-javascript-sdk", remote="optional")
+        source, capture = values[6:8]
+        self.assertEqual(1, values[8]["policy"]["format_version"])
+        self.assertEqual("optional", values[8]["policy"]["remote_export"])
+        self.assertEqual("python", source["results"][0]["runtime"])
+        with self.assertRaisesRegex(common.ReleaseError, "runtime differs from the pinned SDK producer"):
+            adapter.import_experiment(*values[2:6], report_name="wrong-runtime.json")
+        self.assertEqual([], values[1].requests)
+        source["results"][0]["runtime"] = "node"
+        self.save(values[4], values[5], source, capture)
+        report = adapter.import_experiment(*values[2:6], report_name="node-runtime.json")
+        self.assertEqual("passed", report["status"])
+        self.assertEqual("langfuse-javascript-sdk", report["producer"]["kind"])
+
+    def test_official_action_policy_keeps_both_supported_runtimes(self):
+        values = self.prepare(producer="langfuse-experiment-action", remote="optional")
+        source, capture = values[6:8]
+        for runtime in ("python", "node"):
+            with self.subTest(runtime=runtime):
+                source["results"][0]["runtime"] = runtime
+                self.save(values[4], values[5], source, capture)
+                report = adapter.import_experiment(*values[2:6], report_name=f"action-{runtime}.json")
+                self.assertEqual("passed", report["status"])
+                self.assertEqual("langfuse-experiment-action", report["producer"]["kind"])
+        self.assertEqual([], values[1].requests)
+
     def test_policy_is_persisted_once_and_stage_binds_it(self):
         values = self.prepare()
         manifest, stage_path, binding = values[2], values[3], values[8]
