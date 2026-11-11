@@ -17,7 +17,7 @@ include test_staged_release.py
 include test_evaluation_gate.py
 
 include CHANGELOG.md CONTRIBUTING.md SECURITY.md
-recursive-include docs *.md *.json
+recursive-include docs *.md *.json *.svg
 recursive-include skills *.md
 recursive-include tools *.py
 include test_captured_outputs.py

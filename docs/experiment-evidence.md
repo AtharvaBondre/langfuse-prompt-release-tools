@@ -1,5 +1,11 @@
 # Experiment evidence and required checks
 
+For a first run, start with [getting started](getting-started.md) and the
+[current 0.6 SDK demo](sdk-release-example.md). The demo uses real Python and
+JavaScript SDK experiment runners on a disposable server, with deterministic
+tasks and no model calls. This guide explains how to connect your own task and
+evaluators to the same evidence contract.
+
 A release policy is reviewed **before staging and execution**. It specifies the
 prompt targets, dataset cases, required evaluator names and thresholds. Importing
 results cannot reduce these requirements. Promotion reads the policy from the
@@ -10,11 +16,20 @@ execution, datasets, scores and prompt resolution. The adapter does not run an
 LLM, implement another evaluator, or infer runtime identity from an experiment
 URL.
 
-## Workflow
+## Current workflow: policy v2 with remote verification
+
+Use `format_version: 2` and `remote_export: required` when a release must prove
+that its experiment cases and scores reached Langfuse. The independent
+`remote_verification` policy pins the project, dataset kind and receipt freshness.
+Completing a task or calling `flush()` cannot satisfy that requirement.
+
+The commands below assume the installed environment is activated as described
+in [getting started](getting-started.md). Keep the selected host, project and
+project-scoped keys together in a dedicated environment for this release.
 
 1. Export prompts and review the local edits.
 2. Write the policy JSON and run
-   `langfuse-release-policy --manifest export/manifest.json --policy policy.json`.
+   `langfuse-release-policy --manifest release-review/prompt-index.json --policy policy.json`.
    This adds the full policy and its digest to the manifest. It is a one-time
    binding; changing it requires a fresh export. Staging must happen afterward.
 3. Stage the edited prompts. Its snapshot digest now includes the policy.
@@ -22,21 +37,59 @@ URL.
    before the experiment starts, including for roots with no dependencies.
 5. Run the application's task through the official SDK or Experiment Action.
    Start the capture before execution, fetch each prompt by immutable version,
-   and record the returned prompt immediately. Preserve actual outputs and
-   per-item evaluator results.
-6. Import the Action v1 result file and finalized capture:
+   and record the returned prompt immediately, before compiling it or passing it
+   into a framework that transforms the SDK object. Preserve actual outputs and
+   per-item evaluator results. Write `result.json` in the supported Action v1
+   format and finalize `capture.json`; see the helpers below.
+6. Verify remote persistence using the same plain policy object that was pinned.
+   Select the project ID independently; do not derive it from a result URL:
+
+   ```sh
+   langfuse-release-remote --host "$LANGFUSE_HOST" \
+     --project-id "$LANGFUSE_PROJECT_ID" --dataset-kind local \
+     --policy policy.json --results result.json --capture capture.json \
+     --report release-review/reports/remote.json
+   ```
+
+   Use `--dataset-kind langfuse` only for an actual hosted dataset whose identity
+   is pinned in the policy. A `pending` or `failed` remote receipt blocks the
+   required gate. Keep the finalized capture unchanged; do not rewrite its export
+   flag after this check. See [remote persistence](remote-persistence.md).
+7. Import the Action v1 result file, finalized capture and confirmed remote receipt:
 
    ```sh
    langfuse-release-import-experiment \
-     --manifest export/manifest.json \
-     --stage-report export/reports/stage.json \
-     --results result.json --capture capture.json
+     --manifest release-review/prompt-index.json \
+     --stage-report release-review/reports/stage.json \
+     --results result.json --capture capture.json \
+     --remote-report release-review/reports/remote.json --report evaluation.json
    ```
 
-7. Supply the resulting receipt to promotion along with the same dependency
+8. Supply the resulting receipt to promotion along with the same dependency
    lock. Promotion revalidates evidence before each label PATCH. A later
    dependency change invalidates the lock; rerun the evaluation against a newly
    reviewed release instead of binding an old run to a new lock.
+
+   ```sh
+   langfuse-release-promote --host "$LANGFUSE_HOST" \
+     --manifest release-review/prompt-index.json \
+     --stage-report release-review/reports/stage.json --label production \
+     --evaluation-report release-review/reports/evaluation.json \
+     --dependency-lock release-review/reports/dependencies.json \
+     --report promotion-preview.json
+
+   # After reviewing the preview, apply using a new report filename.
+   langfuse-release-promote --host "$LANGFUSE_HOST" \
+     --manifest release-review/prompt-index.json \
+     --stage-report release-review/reports/stage.json --label production \
+     --evaluation-report release-review/reports/evaluation.json \
+     --dependency-lock release-review/reports/dependencies.json \
+     --apply --report promotion-apply.json
+   ```
+
+   Select the actual reviewed deployment label. Reports never overwrite an old
+   attempt. If the remote receipt expires during review, perform a new remote
+   check and import it into a new evaluation receipt before promotion.
 
 The equivalent Python entry points are `langfuse_release_policy.pin_policy` and
 `import_langfuse_experiment.import_experiment`. Both return dictionaries. The
@@ -45,14 +98,17 @@ Source result, capture and lock files must remain available; receipts contain
 absolute local references and fingerprints. Copying a receipt alone is not a
 portable evidence bundle.
 
-## Policy v1
+## Policy fields
 
-Required top-level fields are `format_version: 1`, a nonempty `id`, `producer`,
+Required top-level fields are `format_version`, a nonempty `id`, `producer`,
 `dataset`, `execution`, `targets`, `checks` and `remote_export`.
+For the current remote-required workflow, use version 2 and include
+`remote_verification`. Policy versions and the Action result's `schema_version:
+v1` are separate contracts.
 
 | Field | Meaning |
 | --- | --- |
-| `producer.kind` | `langfuse-experiment-action` or `langfuse-python-sdk`; records what actually produced the evidence |
+| `producer.kind` | `langfuse-experiment-action`, `langfuse-python-sdk` or `langfuse-javascript-sdk`; records what actually produced the evidence |
 | `producer.schema_version` | `v1`, the official Experiment Action JSON format |
 | `producer.script_path` | Exact script identity selected before the run |
 | `dataset.id`, `.name`, `.version` | Actual dataset identity and immutable item-version selection; local examples must identify themselves as local |
@@ -63,6 +119,20 @@ Required top-level fields are `format_version: 1`, a nonempty `id`, `producer`,
 | `targets` | Nonempty `{name, case_ids}` entries exactly covering changed staged prompts; every pinned case belongs to at least one target |
 | `checks` | Nonempty `{id, kind, operator, threshold}` entries required for **every case**, where `id` is the official score name |
 | `remote_export` | `required` or `optional`, independently selected before execution |
+| `remote_verification` | Required with policy v2 and `remote_export: required`: `{project_id, dataset_kind, max_age_seconds}`; dataset kind is `local` or `langfuse`, and freshness is an integer from 1 to 3600 seconds |
+
+Python SDK producers require `runtime: python` in results; JavaScript SDK
+producers require `runtime: node`. The Action producer may run either runtime.
+For a complete generated synthetic policy, see `policy_for()` in
+[`examples/sdk_experiment.py`](../examples/sdk_experiment.py) and the format-2
+extension in [`verified_release_demo.py`](../examples/verified_release_demo.py).
+Replace the demo's cases, identities and checks with reviewed application values;
+the demo's passing scores are not evidence for another application.
+
+Policy v2 with `remote_export: optional` omits `remote_verification`. This is an
+explicit local-evidence choice and does not establish remote persistence. Policy
+v1 remains readable for older workflows; see its limitations below and the
+[0.6 migration guide](migration-v06.md).
 
 Boolean checks accept only `kind: boolean`, `operator: eq` and an actual boolean
 threshold. Numeric checks accept finite numbers with `eq`, `gte` or `lte`.
@@ -78,6 +148,10 @@ changing expectations. Dataset cases and required checks cannot be empty.
 ## Execution capture helpers
 
 ```python
+from pathlib import Path
+from import_langfuse_experiment import start_capture, capture_prompt, finalize_capture
+from publish_langfuse_prompts import write_report
+
 capture = start_capture(
     manifest_path, stage_report_path,
     dataset=actual_dataset_identity,  # id/name/version; schema_sha256 when used
@@ -92,11 +166,12 @@ capture_prompt(
     requested_name=prompt_name, requested_version=staged_version,
     prompt=prompt,
 )
-# Compile and execute this returned prompt; preserve the actual result.
+# Now compile or hand this prompt to the framework and run the real task.
+# Preserve the actual result and the official runner's per-item evaluations.
 
 # After the official runner has completed and result.json has been written:
-finished = finalize_capture(capture, result_path, remote_export="not_attempted")
-write_report(capture_path, finished, create=True)
+finished = finalize_capture(capture, result_path, remote_export="unconfirmed")
+write_report(Path(capture_path), finished, create=True)
 ```
 
 `start_capture` checks actual dataset/task/evaluator/model identities against the
@@ -108,13 +183,19 @@ validation. The importer requires each case/target observation and independently
 checks its digest against the original lock.
 
 `finalize_capture` returns a new dictionary and must be assigned as shown. It
-records local completion and the canonical digest of the result file. A local
-completion does not prove remote export. Use `confirmed` only after the producer
-has established remote persistence; a URL or a queued flush alone is insufficient.
-Use `unconfirmed` when export/flush was attempted but persistence has not been verified.
-When export is optional, a local passing run with `failed` export stays visibly
-`failed` in the receipt's separate `completion.remote_export` field. When export
-is required, failed, unattempted and unconfirmed export all block import.
+records local completion and the canonical digest of the result file. Use
+`unconfirmed` when export/flush was attempted but persistence has not yet been
+verified, or `not_attempted` if no export was attempted. For a policy-v2
+remote-required release, the separate confirmed remote receipt establishes
+persistence; the finalized capture stays unchanged. A caller-supplied `confirmed`
+flag, result URL or queued flush cannot replace that receipt.
+
+For a JavaScript task, use the [JavaScript capture bridge](../js/README.md) at the
+same point immediately after `langfuse.prompt.get()`. It requires the actual
+official SDK prompt object. Capture before compiling or converting that object
+into a framework-specific representation. The bridge delegates validation to
+the installed Python core; it does not run your task or normalize arbitrary
+experiment results for you.
 
 Capture helpers do not execute SDK calls. The producer must call them at the
 indicated points using the actual objects and execution configuration. Supplying
@@ -138,9 +219,33 @@ regression produces a failed receipt even if item scores pass. Unknown schema
 versions and incomplete/error-only artifacts cannot produce passing evidence.
 
 An official SDK runner can serialize its real results into this format using
-`producer.kind: langfuse-python-sdk`. Its string-valued `action_metadata` should
+`producer.kind: langfuse-python-sdk` or `langfuse-javascript-sdk`. Its
+string-valued `action_metadata` should
 identify the actual adapter and SDK version. Using the envelope does not mean a
 hosted GitHub Action ran.
+
+The working projections are in [`examples/sdk_experiment.py`](../examples/sdk_experiment.py)
+and [`js/sdk-experiment.mjs`](../js/sdk-experiment.mjs). Preserve actual item IDs,
+outputs, trace IDs and typed evaluations. In the checked JavaScript SDK 6.1.1,
+send BOOLEAN scores as numeric `0`/`1` with `dataType: "BOOLEAN"`, then explicitly
+project those typed values to JSON booleans. Do not convert an untyped numeric
+score or use general truthiness. A script can complete with `status: "passed"`
+while its evaluator returns `false`; that failed check still blocks promotion.
+
+## Older policy-v1 workflows
+
+Policy v1 with `remote_export: required` requires a producer-reported
+`completion.remote_export: confirmed`. It does not perform the built-in
+independent persistence check introduced for policy v2. Failed, unattempted or
+unconfirmed export blocks that older required-export gate. Do not treat its
+producer flag as equivalent to a verified remote receipt.
+
+Both policy versions retain optional-export workflows. A locally passing run
+can retain a visible failed or unconfirmed export outcome in
+`completion.remote_export` when export was explicitly optional. The
+[older Python baseline](sdk-release-example.md#older-05-python-baseline) uses
+that local-evidence mode. Start a new export and reviewed policy to adopt v2;
+do not relabel an old run as stronger evidence.
 
 ## Trust and compatibility
 

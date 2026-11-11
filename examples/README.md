@@ -1,6 +1,55 @@
-# Check captured application responses
+# Release examples
 
-For the complete 0.5 workflow with a real official SDK experiment, dependency locks, promotion, recovery and observed cache adoption, use [the SDK release demo](../docs/sdk-release-example.md). The older captured-output example below remains for legacy unpinned snapshots.
+Start with [getting started](../docs/getting-started.md) and the
+[current 0.6 SDK walkthrough](../docs/sdk-release-example.md). Choose the example
+that matches the behavior you want to inspect:
+
+| Example | Purpose |
+| --- | --- |
+| `verified_release_demo.py` | Current workflow: policy v2, Python/JavaScript experiments, independent remote persistence, dependency locks, promotion, bundles and rollout observations |
+| `sdk_release_demo.py` | Older policy-v1 Python baseline, including interrupted-release recovery; remote export remains unconfirmed |
+| `check_captured_outputs.py` | Legacy unpinned snapshots: check response strings that an application already captured |
+
+## Current 0.6: remote evidence, JavaScript and rollout windows
+
+`verified_release_demo.py` runs actual official SDK experiments against a
+disposable loopback Langfuse project. It retains real synthetic task results,
+checks persisted cases and typed scores, and demonstrates both a passing release
+and a failing JavaScript evaluator that stays blocked. It also observes
+cached/fresh/fallback accesses and a two-consumer time window. No model is called.
+
+From the repository root, use Python 3.11+, Node 22+ and a separately prepared
+disposable local server. Install the Python example extra into your environment
+and the locked JavaScript dependencies:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install '.[example]'
+npm ci --prefix js --ignore-scripts
+
+# Supply the disposable project's keys in the environment and independently
+# select its project ID before running this example.
+.venv/bin/python examples/verified_release_demo.py \
+  --host http://127.0.0.1:13830 --project-id "$LANGFUSE_PROJECT_ID" \
+  --out-dir ./verified-demo-evidence --disposable-local
+```
+
+The output directory must be new. A complete run writes `summary.json` with
+`status: passed`; per-run evidence remains available for inspection. The script
+writes synthetic prompts and scores to the disposable project. The
+[walkthrough](../docs/sdk-release-example.md) explains expected failures and the
+[validation record](../docs/validation.md#tested-compatibility) lists tested
+SDK/server/architecture combinations. The local Compose template is ARM64-specific;
+the complete recorded 0.6 matrix ran on Linux AMD64.
+
+To adapt the task, capture the actual SDK prompt immediately after fetching it,
+before compiling or converting it for a framework. Follow the
+[evidence guide](../docs/experiment-evidence.md) for reviewed policy v2, result
+projection and remote receipts; use the [JavaScript helper](../js/README.md) for
+that SDK's capture methods. The examples are in the source checkout and source
+archive, not installed as commands by the Python wheel.
+
+## Legacy: check captured application responses
 
 This small source-checkout example turns **already-captured response strings** into the application-results format consumed by the release gate. It computes two checks: `response_json` and `nonempty_answer`. It makes no model, API or shell calls, and is not an evaluator engine or an installed wheel command.
 
@@ -48,7 +97,10 @@ python evaluate_langfuse_release.py \
   --report evaluation.json
 ```
 
-Use the resulting evaluation receipt in the normal [promotion workflow](../README.md). A failed receipt blocks promotion by default. A passing receipt establishes only that these two checks passed for the trusted captured strings bound to the stage.
+Use the resulting evaluation receipt only for a legacy unpinned snapshot's
+promotion workflow. It cannot satisfy a snapshot with a pinned experiment policy.
+A failed receipt blocks promotion by default. A passing receipt establishes only
+that these two checks passed for the trusted captured strings bound to the stage.
 
 `response_json` requires parseable JSON with finite numbers and unique object members. `nonempty_answer` requires a JSON object whose `answer` field is a string containing at least one non-whitespace character. Prose fails both. `{"answer":""}` parses but fails the answer check. A true but incorrect answer can pass both.
 
@@ -65,15 +117,3 @@ python -m unittest -v test_captured_outputs
 ```
 
 Only the test module imports mocked stage fixtures. The example itself imports runtime helpers and reads local files. Tests demonstrate failed output blocking the gate, passing output allowing promotion in the in-memory service, rejection of stale/malformed captures, and preservation of existing evidence. They do not call Langfuse or a model.
-
-## Remote evidence, JavaScript and rollout windows
-
-`verified_release_demo.py` creates synthetic Python and JavaScript experiments on a disposable loopback server, independently reads persisted cases/scores, imports them under format 2 policy, and exercises cached/fresh/fallback access plus a two-consumer time window. Install `.[example]` and run `npm ci --prefix js --ignore-scripts` first.
-
-```sh
-.venv/bin/python examples/verified_release_demo.py \
-  --host http://127.0.0.1:13830 --project-id YOUR_DISPOSABLE_PROJECT_ID \
-  --out-dir /private/new-evidence-directory --disposable-local
-```
-
-Supply only that disposable project's keys via the environment. This example writes synthetic prompts and scores, makes no model calls, and does not send data to a cloud tenant. Do not point it at a customer or production instance. See the release validation record for the exact supported SDK/server matrix.

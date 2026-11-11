@@ -4,6 +4,8 @@ Start with a reproducible release problem: the target Langfuse version, a synthe
 
 Keep the core runtime dependency-free. Use official Langfuse SDKs or tools for optional integrations rather than rebuilding their APIs. The [roadmap](docs/roadmap.md) lists prioritized work and acceptance criteria.
 
+Use the [customer workflows](docs/customer-workflows.md) to connect a proposal to a release decision. The [community contribution guide](docs/community-contributions.md) describes small pieces that could help upstream Langfuse, including reproduction requirements and the distinction between an observed integration issue and an upstream defect.
+
 ## Local checks
 
 ```bash

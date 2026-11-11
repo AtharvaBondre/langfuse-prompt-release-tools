@@ -1,109 +1,118 @@
-# Langfuse prompt release tools
+# Langfuse Prompt Release Tools
 
-Test a staged prompt, promote its label, then check what the application actually used.
+**Check that the prompt you release matches the one you tested, then see what your app received.**
 
-**Independent project by Atharva Bondre.** Version **0.6.0a1** adds a release verification workflow around Langfuse's official SDK, experiments and prompt resolver. It grows the [original Gist](https://gist.github.com/AtharvaBondre/3ad9d0654b5450d1e007728f67047fa0); it is not an official Langfuse product.
+Use this toolkit alongside Langfuse to review a prompt change, test the candidate through your application, and move a deployment label after your required checks pass. You can verify stored experiment results, inspect an interrupted release, and check which version your instrumented app requests received.
 
-## What this adds
+[Try the demo](#try-it-before-wiring-your-app) · [Get started](docs/getting-started.md) · [Customer workflows](docs/customer-workflows.md) · [Compare with native Langfuse](docs/langfuse-comparison.md) · [Download 0.6.0a1](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/releases/tag/v0.6.0a1)
 
-Langfuse supplies prompt management, experiments, SDKs, CLI, MCP and skills. This project connects those capabilities to a reviewed release:
+![Release workflow: review prompt edits and required tests; test exact versions and nested prompts; verify cases and stored scores; promote a selected label; observe app requests and cache or fallback behavior.](docs/images/release-workflow.svg)
 
-- Pin required cases, scores and thresholds **before** staging and execution.
-- Import official Experiment Action v1 results, or SDK results projected into that format, with task-time prompt identity and content capture.
-- Bind the complete resolved dependency graph to the experiment; reject nested label drift before promotion writes.
-- Reconcile interrupted operations by GET, retaining unknown creation outcomes without automatically retrying them.
-- Record actual application SDK accesses after promotion, distinguishing a stale cached prompt or fallback from an observed adoption.
+## Problems you can catch before and after a release
 
-- Package original evidence bytes in a portable bundle and verify an independently trusted GitHub CI attestation.
-- Confirm exported experiments and every required typed score through bounded, project-scoped API reads.
-- Capture official Python and JavaScript SDK objects through a shared validation contract.
-- Measure consumer/version coverage across a predeclared rollout window, rejecting replay and mixed releases.
+You tested a candidate on Tuesday. A teammate changes a shared prompt before you promote it on Wednesday. Or you move the `production` label and an app keeps serving a cached version. A passing evaluation alone leaves both questions open.
 
-Local records are unsigned unless a separately trusted CI attestation is verified. CI provenance identifies the builder and artifact; it does not guarantee model quality or coverage of all application traffic.
+| Situation | Use this toolkit to… | What you can inspect |
+|---|---|---|
+| You evaluated one version, then selected another for release. | Compare the staged version and returned prompt content with the captured experiment. | Version identities, content hashes and failed checks. |
+| Someone changed a prompt nested inside your candidate. | Lock the dependency graph used during evaluation and check it again around promotion. | The changed dependency and the release attempt it blocked. |
+| Your experiment finished, but export lost a case or score. | Read the required cases and typed scores back from Langfuse before accepting remote persistence. | Separate local-completion and remote-persistence outcomes. |
+| Your deployment command lost its connection. | Inspect the saved attempt and read the current server state before deciding what to do next. | Completed, pending, conflicting or unknown outcomes. |
+| The label moved, but an app still uses an old prompt. | Compare instrumented SDK accesses with the released version and expected dependencies. | Cache/fallback details, missing consumers and time-window coverage. |
+| Another reviewer or CI job needs the release evidence. | Bundle the original files and verify their contents on another machine. | An inventory, release identity and optional GitHub CI provenance. |
 
-## Install
+## Use it alongside Langfuse
 
-The fifteen CLI commands require Python 3.10+ and have no mandatory runtime dependencies. The optional SDK example requires Python 3.11+.
+Keep using Langfuse for prompt editing, versions, labels, experiments, datasets, traces and scores. Its official SDKs, CLI, MCP and GitHub integrations remain part of your stack.
+
+Langfuse also provides CI regression gates and release-policy guidance. This repository supplies a connected implementation of the checks and handoffs around a release: reviewed requirements → captured prompt/dependencies → evaluation evidence → label promotion → observed application use.
+
+| You already use | Add this project for |
+|---|---|
+| Langfuse prompt versions and deployment labels | A reviewed local snapshot and evidence checks before the selected label move. |
+| SDK experiments or the official Experiment Action | A pinned set of required cases/checks, tied to the exact staged prompts your task fetched. |
+| Prompt composition and SDK caching | Dependency drift checks and separate observations of cached, fresh or fallback use. |
+| Your CI jobs and artifact storage | A portable release bundle and verification against a signer policy you select. |
+
+You can build similar integrations from the official APIs and your own scripts. Use this repository to adopt and extend the existing commands, report formats, failure handling and tested examples. The [source-backed comparison](docs/langfuse-comparison.md) explains the overlap and the additional workflow we provide.
+
+## Projects this can help
+
+Use it for a support assistant with a JSON response contract, a RAG application with a shared system prompt, or an agent whose instructions change across releases. You supply the application task, dataset and evaluators. The toolkit checks the resulting release evidence.
+
+The [worked scenarios](docs/customer-workflows.md) show the decisions you can support: promoting a shared prompt, checking app caches after release, handing evidence to another reviewer and investigating a lost deployment response. Each links to a reproducible check and explains what you need to supply for your app.
+
+The Python and JavaScript capture hooks sit after the official SDK prompt fetch, before your framework transforms the prompt. Your task can use your chosen model or provider; adopting this project does not require changing inference providers. Framework wiring remains your application code.
+
+For a small project that needs prompt editing and label updates, native Langfuse may cover the workflow you need. Add this toolkit when you want repeatable release checks, evidence handoffs or an explanation of which prompt an app used.
+
+## Try it before wiring your app
+
+**See a completed run:** the [live compatibility workflow](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/actions/workflows/live-sdk.yml) runs real Langfuse servers and both official SDKs. Open a successful run, then its `summary.json` artifact to read the checks and outcomes.
+
+**Run your own demo without an existing Langfuse account:**
+
+1. Fork this repository and enable GitHub Actions in your fork.
+2. Open **Actions → Live SDK compatibility → Run workflow**.
+3. Open each job's artifact and read `summary.json` and `sanitized.log`.
+
+The workflow starts disposable Langfuse instances on GitHub-hosted runners, creates test credentials, exercises the release process and removes its containers. It uses synthetic data and makes no model-provider calls. GitHub Actions usage follows your account's runner limits.
+
+You will see a failing JavaScript evaluation block promotion, a nested prompt change invalidate an earlier evaluation, a cached app access differ from a fresh access, and two instrumented consumers complete a rollout window. The [guided demo](docs/getting-started.md#1-run-the-working-example) explains the output and the local Docker option.
+
+## Install the commands
+
+Use Python 3.10+ for the core commands. For the SDK examples, use Python 3.11+; add Node 22+ for JavaScript.
 
 ```bash
 git clone https://github.com/AtharvaBondre/langfuse-prompt-release-tools.git
 cd langfuse-prompt-release-tools
 python3 -m venv .venv
-.venv/bin/python -m pip install .
-# Optional real SDK example:
-.venv/bin/python -m pip install '.[example]'
+source .venv/bin/activate
+python -m pip install .
+langfuse-release-pull --help
 ```
 
-Windows virtual environments use `Scripts` instead of `bin`. See [all commands](PACKAGING.md).
+On Windows PowerShell, use `py -m venv .venv` and `.\.venv\Scripts\Activate.ps1` in place of the two environment commands above. The [release assets](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/releases/tag/v0.6.0a1) include a Python wheel, source archive, JavaScript helper and checksums.
 
-## Release with a pinned policy
+Install `.[example]` to run the Python SDK examples and run `npm ci --prefix js --ignore-scripts` for the JavaScript example. Signature verification uses the GitHub CLI, `gh`. The core Python package has no required third-party Python dependencies.
 
-Select the host, project, prompt names and deployment label. Supply `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` through the environment or a secret manager. Keep exports and execution evidence private.
+## Take it into your release process
 
-**Staging advances `latest`.** Other deployment labels remain unchanged during staging. Explicit tags apply to all versions.
+Start with the [step-by-step guide](docs/getting-started.md). It shows the commands, where you add capture to your task, and which file each stage produces.
 
-```bash
-langfuse-release-pull --host "$LANGFUSE_HOST" --label production \
-  --name example/answer --out-dir ./release-review
+| Step | Your work | Guide |
+|---|---|---|
+| Review | Export the selected prompt and choose the dataset, evaluator thresholds and execution configuration. | [Policy and evidence](docs/experiment-evidence.md) |
+| Stage and test | Create the candidate, record its dependencies, and run your task against its exact version. | [Python example](examples/sdk_experiment.py), [JavaScript helper](js/README.md) |
+| Verify and promote | Import the results, require remote persistence if your policy calls for it, then preview and apply the label move. | [Getting started](docs/getting-started.md#3-run-a-release-with-your-own-app), [remote verification](docs/remote-persistence.md) |
+| Review application use | Capture SDK accesses and check the consumers, versions and time windows you chose. | [Adoption](docs/dependencies-and-adoption.md), [rollout windows](docs/rollout-observation.md) |
+| Share or recover | Transfer test evidence, verify CI identity, or inspect an interrupted attempt. | [Bundles and signatures](docs/portable-evidence.md), [recovery](docs/reconciliation.md) |
 
-# Edit the exported prompt. Write and review policy.json for the actual app.
-langfuse-release-policy --manifest ./release-review/prompt-index.json \
-  --policy ./policy.json
+### Read a release outcome
 
-langfuse-release-publish --host "$LANGFUSE_HOST" \
-  --manifest ./release-review/prompt-index.json --report preview.json
-langfuse-release-publish --host "$LANGFUSE_HOST" \
-  --manifest ./release-review/prompt-index.json --apply --report stage.json
+This example shows how to read three separate JSON reports. Version numbers are illustrative; this is not output from a combined status command.
 
-langfuse-release-dependencies --host "$LANGFUSE_HOST" \
-  --manifest ./release-review/prompt-index.json \
-  --stage-report ./release-review/reports/stage.json \
-  --sdk 'langfuse-python/5.2.0' --compiler 'your-app/reviewed-revision' \
-  --report dependencies.json
-```
+| Report | Example result | Your next step |
+|---|---|---|
+| Evaluation | Required checks passed for prompt version 18. | Review the promotion preview. |
+| Promotion | The selected label points to version 18. | Check application observations. |
+| Adoption | One consumer returned version 17 with caching enabled: `not_adopted`. | Inspect that consumer's cache and deployment before declaring its rollout complete. |
 
-Run the actual application experiment now. Initialize its capture with the manifest, stage and dependency lock; fetch each exact staged version inside the task; record the returned object before scoring the output. The [evidence guide](docs/experiment-evidence.md) defines the policy and capture contract. The [working SDK example](docs/sdk-release-example.md) demonstrates a complete local run without model calls.
+You get the distinction between a passing experiment, a changed label and observed app use. Keep the reports together so a teammate can follow the release without reconstructing your terminal session.
 
-```bash
-langfuse-release-import-experiment \
-  --manifest ./release-review/prompt-index.json \
-  --stage-report ./release-review/reports/stage.json \
-  --results ./result.json --capture ./capture.json --report evaluation.json
+## Tested in 0.6, planned next
 
-# Preview first. Add --apply to perform the selected label move.
-langfuse-release-promote --host "$LANGFUSE_HOST" \
-  --manifest ./release-review/prompt-index.json \
-  --stage-report ./release-review/reports/stage.json --label production \
-  --evaluation-report ./release-review/reports/evaluation.json \
-  --dependency-lock ./release-review/reports/dependencies.json \
-  --report promotion-preview.json
-```
+The current release is **0.6.0a1**. We ran **383 source tests**, tested the installed Python/JavaScript packages, and verified signed evidence on a second machine. The live suite passed **24 checks on Langfuse 4.59.0** and **38 on 4.78.0**, using Python SDK 5.2.0 and JS SDK 6.1.1 on Linux AMD64. [Validation details and CI links](docs/validation.md).
 
-Keep all source files unchanged through promotion. Policy-pinned snapshots reject direct publication, structural-only promotion, legacy evaluation receipts and a missing or substituted dependency lock. Every changed target and required case must pass. A failed partial batch can retain earlier label moves; inspect its per-item report.
+This remains an alpha for teams willing to integrate capture into their task. You inspect JSON reports today. Application observations cover the requests you instrument, and CI provenance identifies the builder and artifact. Native Langfuse authorization still controls server access. Use a dedicated project key set throughout a release; project identity checks before all mutation commands remain planned.
 
-After promotion, instrument the actual consumer with `capture_sdk_observation()` and record/check its accesses with `langfuse-release-adoption`. Required consumer/deployment identities and maximum observation age are supplied independently. [Dependency and adoption guide](docs/dependencies-and-adoption.md).
+The next priorities are easier policy setup and a release-status view, project checks before writes, signer-required promotion, and stronger recovery controls. We have deferred an existing-application pilot until a suitable app/test environment is available. See the [product improvement plan](docs/product-improvements.md) and [implementation roadmap](docs/roadmap.md).
 
-## Interrupted operations
+## Project and contributions
 
-```bash
-langfuse-release-reconcile --host "$LANGFUSE_HOST" \
-  --manifest ./release-review/prompt-index.json \
-  --release-report ./release-review/reports/stopped.json
-```
+Atharva Bondre maintains this independent MIT project. It grew from the [original prompt-release Gist](https://gist.github.com/AtharvaBondre/3ad9d0654b5450d1e007728f67047fa0). Langfuse names identify the platform we integrate with; this is a community project.
 
-Reconciliation makes no mutation. It reports completed, pending, conflicting or unknown outcomes. A matching version after a lost POST is only a candidate, not proof that the attempt created it. [Recovery details](docs/reconciliation.md).
+If you try it, an [issue](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/issues) with the SDK/server versions, redacted report and step that confused you will help improve the next release. See [contributing](CONTRIBUTING.md), [security](SECURITY.md), the [agent skill](skills/langfuse-prompt-release/SKILL.md), and [all fifteen commands](PACKAGING.md).
 
-## Validation and limits
-
-The [validation record](docs/validation.md) separates offline tests, installed-package checks, signed CI artifact verification and real local SDK/server integration. The [verified release example](examples/verified_release_demo.py) checks persisted cases and typed scores, failing/passing JavaScript experiments, nested dependencies, cached/fresh accesses and a two-consumer rollout window. It makes no model-quality claim.
-
-Start with [0.6 migration](docs/migration-v06.md), [portable evidence](docs/portable-evidence.md), [remote persistence](docs/remote-persistence.md), the [JavaScript helper](js/README.md) and [rollout observations](docs/rollout-observation.md).
-
-Langfuse's API has no release transaction or compare-and-swap across this workflow. Fresh checks cannot eliminate concurrent-writer races. Coordinate writers. Dependency tags outside the supported documented syntax fail closed; this tool uses the server resolver and does not implement another prompt renderer. An adoption receipt covers the instrumented accesses supplied to it.
-
-Legacy unpinned exports remain supported through the [legacy result format](EVALUATION.md). See [0.5 migration](docs/migration-v05.md) before upgrading automation.
-
-- [Roadmap and implemented scope](docs/roadmap.md)
-- [Official platform contracts](docs/official-platform-contracts.md) and [official tools](docs/official-agent-tools.md)
-- [Agent skill](skills/langfuse-prompt-release/SKILL.md)
-- [Security](SECURITY.md), [contributing](CONTRIBUTING.md), [upstream notices](THIRD-PARTY-NOTICES.md)
+For Langfuse maintainers and contributors, the [community contribution guide](docs/community-contributions.md) identifies small examples, contract tests and release checks that could be reused upstream. Each proposal needs a reproduction and acceptance evidence before we ask anyone to adopt it.
