@@ -64,7 +64,7 @@
       },
       "docker_context": "default",
       "host": "http://127.0.0.1:13830",
-      "source_commit": "fde4548d7a65e5560a1e54c7697423b6eec2e920",
+      "source_commit": "4117f434614b1aa1a49e12e2371851f05709ce1c",
       "checks": [
         {
           "demo": "verified_release_demo",
@@ -227,11 +227,11 @@
       },
       "api_probes": [
         {
-          "path": "/api/public/experiments?fromStartTime=2026-11-11T12%3A50%3A30.068607%2B00%3A00&toStartTime=2026-11-11T12%3A55%3A30.068607%2B00%3A00&limit=1&fields=core",
+          "path": "/api/public/experiments?fromStartTime=2026-11-11T12%3A55%3A14.309118%2B00%3A00&toStartTime=2026-11-11T13%3A00%3A14.309118%2B00%3A00&limit=1&fields=core",
           "http_status": 200
         },
         {
-          "path": "/api/public/experiment-items?fromStartTime=2026-11-11T12%3A50%3A30.068607%2B00%3A00&toStartTime=2026-11-11T12%3A55%3A30.068607%2B00%3A00&experimentId=00000000000000000000000000000000&limit=1&fields=core%2Cdataset%2Cio",
+          "path": "/api/public/experiment-items?fromStartTime=2026-11-11T12%3A55%3A14.309118%2B00%3A00&toStartTime=2026-11-11T13%3A00%3A14.309118%2B00%3A00&experimentId=00000000000000000000000000000000&limit=1&fields=core%2Cdataset%2Cio",
           "http_status": 200
         },
         {
@@ -241,7 +241,7 @@
       ],
       "support_claim": "Full requested synthetic SDK/server workflow passed",
       "cleanup_status": "complete",
-      "completed_at_utc": "2026-11-11T12:56:10.955937+00:00"
+      "completed_at_utc": "2026-11-11T13:00:59.376373+00:00"
     },
     {
       "status": "passed",
@@ -266,7 +266,7 @@
       },
       "docker_context": "default",
       "host": "http://127.0.0.1:13830",
-      "source_commit": "fde4548d7a65e5560a1e54c7697423b6eec2e920",
+      "source_commit": "4117f434614b1aa1a49e12e2371851f05709ce1c",
       "checks": [
         {
           "demo": "verified_release_demo",
@@ -373,11 +373,11 @@
       },
       "api_probes": [
         {
-          "path": "/api/public/experiments?fromStartTime=2026-11-11T12%3A50%3A55.802368%2B00%3A00&toStartTime=2026-11-11T12%3A55%3A55.802368%2B00%3A00&limit=1&fields=core",
+          "path": "/api/public/experiments?fromStartTime=2026-11-11T12%3A55%3A35.843465%2B00%3A00&toStartTime=2026-11-11T13%3A00%3A35.843465%2B00%3A00&limit=1&fields=core",
           "http_status": 200
         },
         {
-          "path": "/api/public/experiment-items?fromStartTime=2026-11-11T12%3A50%3A55.802368%2B00%3A00&toStartTime=2026-11-11T12%3A55%3A55.802368%2B00%3A00&experimentId=00000000000000000000000000000000&limit=1&fields=core%2Cdataset%2Cio",
+          "path": "/api/public/experiment-items?fromStartTime=2026-11-11T12%3A55%3A35.843465%2B00%3A00&toStartTime=2026-11-11T13%3A00%3A35.843465%2B00%3A00&experimentId=00000000000000000000000000000000&limit=1&fields=core%2Cdataset%2Cio",
           "http_status": 200
         },
         {
@@ -387,7 +387,7 @@
       ],
       "support_claim": "Full requested synthetic SDK/server workflow passed",
       "cleanup_status": "complete",
-      "completed_at_utc": "2026-11-11T12:56:55.838504+00:00"
+      "completed_at_utc": "2026-11-11T13:01:36.486196+00:00"
     }
   ],
   "limits": [
@@ -396,5 +396,6 @@
     "Signed CI proves selected builder/artifact identity; its rollout fixture is explicitly synthetic historical evidence",
     "Only the two listed server versions tested, not every intervening release",
     "POSIX modes do not establish Windows ACL privacy"
-  ]
+  ],
+  "outstanding_operational_step": "Original real-application pilot remains open: select application/repository and test environment; current live checks use synthetic applications."
 }
