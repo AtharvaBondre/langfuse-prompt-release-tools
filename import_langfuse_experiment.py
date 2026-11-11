@@ -32,11 +32,12 @@ def _dataset_identity(policy):
     return {key: policy["dataset"][key] for key in ("id", "name", "version", "schema_sha256") if key in policy["dataset"]}
 
 
-def _capture_lock(reference, snapshot=None, stage=None, *, started=None):
+def _capture_lock(reference, snapshot=None, stage=None, *, started=None, lock=None):
     from langfuse_release_dependencies import validate_lock_integrity
     object_fields(reference, ("file", "sha256"), where="dependency lock reference")
     text(reference["file"], "dependency lock file")
-    _, lock = read_object(reference["file"], "dependency lock")
+    if lock is None:
+        _, lock = read_object(reference["file"], "dependency lock")
     validate_lock_integrity(lock)
     if reference["sha256"] != fingerprint(lock):
         raise ReleaseError("Dependency lock changed after execution capture began.")
@@ -219,7 +220,7 @@ def _action_result(source, policy):
     return result
 
 
-def _validate_capture(capture, snapshot, stage, binding, result):
+def _validate_capture(capture, snapshot, stage, binding, result, *, dependency_lock=None):
     object_fields(capture, ("format_version", "mode", "snapshot_sha256", "stage_sha256", "policy_sha256",
                            "started_at_utc", "completed_at_utc", "dataset", "execution", "targets",
                            "completion", "result_sha256", "items"), ("dependency_lock",), where="execution capture")
@@ -241,7 +242,7 @@ def _validate_capture(capture, snapshot, stage, binding, result):
     if capture["execution"] != policy["execution"]:
         raise ReleaseError("Execution task, evaluator or model identity differs from policy.")
     targets = _targets(snapshot, stage, policy)
-    lock = _capture_lock(capture["dependency_lock"], snapshot, stage, started=started) if "dependency_lock" in capture else None
+    lock = _capture_lock(capture["dependency_lock"], snapshot, stage, started=started, lock=dependency_lock) if "dependency_lock" in capture else None
     if lock is not None and {(root["name"], root["version"]) for root in lock["roots"]} != {(target["name"], target["version"]) for target in targets}:
         raise ReleaseError("Dependency lock must cover exactly the staged prompt targets.")
     if capture["targets"] != targets:
@@ -308,10 +309,10 @@ def _check_score(score, check):
     return {"id": check["id"], "value": value, "passed": passed}
 
 
-def _derive(snapshot, stage, source, capture):
+def _derive(snapshot, stage, source, capture, *, dependency_lock=None):
     binding = snapshot_policy(snapshot, required=True)
     policy = binding["policy"]
-    _validate_capture(capture, snapshot, stage, binding, source)
+    _validate_capture(capture, snapshot, stage, binding, source, dependency_lock=dependency_lock)
     script = _action_result(source, policy)
     cases = {case["id"]: case for case in policy["dataset"]["cases"]}
     checks = {check["id"]: check for check in policy["checks"]}
@@ -371,20 +372,24 @@ def import_experiment(manifest_path, stage_report_path, result_path, capture_pat
     return report
 
 
-def validate_experiment(report_path, snapshot, stage):
-    _, report = read_object(report_path, "experiment receipt")
+def validate_experiment_artifacts(report, snapshot, stage, source, capture, *, dependency_lock=None):
+    """Validate preserved artifact objects; an explicit lock avoids filesystem reads.
+
+    Bundles use this seam after checking their original file bytes. This does not
+    rewrite locators or weaken their original content fingerprints.
+    """
     unsigned = copy.deepcopy(report)
     claimed = unsigned.pop("evidence_sha256", None)
     if claimed != fingerprint(unsigned):
         raise ReleaseError("Experiment receipt digest mismatch.")
-    loaded = {}
-    for field, description in (("source_results", "Action results"), ("execution_capture", "execution capture")):
+    for field, value in (("source_results", source), ("execution_capture", capture)):
         reference = object_fields(report.get(field), ("file", "sha256"), where=field)
         text(reference["file"], f"{field}.file")
-        _, loaded[field] = read_object(reference["file"], description)
-        if fingerprint(loaded[field]) != reference["sha256"]:
-            raise ReleaseError(f"{description} changed after import.")
-    expected = _derive(snapshot, stage, loaded["source_results"], loaded["execution_capture"])
+        if fingerprint(value) != reference["sha256"]:
+            raise ReleaseError(f"{field} changed after import.")
+    if dependency_lock is not None and "dependency_lock" not in capture:
+        raise ReleaseError("An unbound dependency lock cannot be attached to old execution evidence.")
+    expected = _derive(snapshot, stage, source, capture, dependency_lock=dependency_lock)
     for field, value in expected.items():
         if fingerprint(report.get(field)) != fingerprint(value):
             raise ReleaseError(f"Experiment receipt {field} disagrees with source evidence and pinned policy.")
@@ -394,6 +399,19 @@ def validate_experiment(report_path, snapshot, stage):
     if expected["status"] != "passed":
         raise ReleaseError("Experiment checks or execution failed; promotion is blocked.")
     return copy.deepcopy(report)
+
+
+def validate_experiment(report_path, snapshot, stage):
+    _, report = read_object(report_path, "experiment receipt")
+    unsigned = {key: value for key, value in report.items() if key != "evidence_sha256"}
+    if report.get("evidence_sha256") != fingerprint(unsigned):
+        raise ReleaseError("Experiment receipt digest mismatch.")
+    loaded = {}
+    for field, description in (("source_results", "Action results"), ("execution_capture", "execution capture")):
+        reference = object_fields(report.get(field), ("file", "sha256"), where=field)
+        text(reference["file"], f"{field}.file")
+        _, loaded[field] = read_object(reference["file"], description)
+    return validate_experiment_artifacts(report, snapshot, stage, loaded["source_results"], loaded["execution_capture"])
 
 
 def main():
