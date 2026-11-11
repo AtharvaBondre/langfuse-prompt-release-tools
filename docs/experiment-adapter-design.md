@@ -1,5 +1,7 @@
 # Proposed official experiment adapter
 
+This research design was implemented in 0.5.0a1. Use [the current evidence contract](experiment-evidence.md), [working SDK example](sdk-release-example.md) and [roadmap](roadmap.md) for current behavior and remaining scope. The design discussion below is retained as rationale.
+
 **Design only; not implemented in 0.4.0a1.** The alpha accepts trusted application results and includes a deterministic captured-output checker. This proposal maps results from official Langfuse experiments into that release contract without creating a second experiment engine.
 
 ## User flow

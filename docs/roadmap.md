@@ -1,69 +1,120 @@
-# Research and expansion plan
+# Release roadmap
 
-Decision date: **11 November 2026**. Build a release workflow that makes application evidence and interrupted writes inspectable. Reuse Langfuse for prompt storage, label movement, experiment execution and observability.
+Updated **11 November 2026**, after the 0.5 implementation passed local source,
+installed-package and live SDK/server checks plus all six GitHub CI jobs at
+[53e2eae](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/actions/runs/43014213742).
 
-This continues the public Gist's design: v2 separated staging and promotion; v3 bound application results to a release. The repository alpha makes those controls default and gives the project a tested distribution path. It does not claim to invent staging, evaluations, CI gates or MCP access.
+## Completed in 0.5.0a1
 
-## What exists upstream, and what belongs here
-
-| Need | What Langfuse already supplies | Value this project can add |
+| Previously planned capability | Implemented behavior | Evidence |
 |---|---|---|
-| Store, fetch and version prompts | Prompt API, Python/JS SDKs, official CLI and native MCP | Review local content against a captured baseline; preserve exact JSON/text values and read back returned version IDs. |
-| Test application behavior | Datasets, SDK experiments, evaluators and `experiment-action` | Bind results from those runners to every changed staged version and the intended release checks. |
-| Move deployment labels | Label API, SDK/CLI/MCP tools, protected labels where available | Require unchanged evidence, detect baseline drift, record each outcome and reconcile a completed move after a lost response. |
-| Guide an agent | Official Langfuse skills and Claude/Codex/Cursor skill manifests | A small complementary release skill that follows this project's receipts and stopping conditions. |
-| Observe the agent | Six official telemetry plugins, Halo and gateway integrations | No replacement. Tracing an agent does not prove it evaluated the prompt version being released. |
-| Recover from partial failure | API reads and mutable labels | A release-specific explanation of what completed, what conflicts and what remains uncertain. No automatic rollback claim. |
+| Official experiment result import | Action v1 / normalized Python SDK results, exact item coverage, typed thresholds, task-time returned prompt capture | Actual SDK artifacts pass the official v1 schema; malformed/partial/changed inputs fail closed |
+| Independent required-test policy | Review and pin before staging; no legacy receipt, direct-publication, structural-only or missing-lock bypass | Policy and integration regression tests |
+| Working application example | Real official SDK runner compiles fetched candidates, scores actual output and produces both failing and passing receipts | 14 live assertions on SDK 5.2.0 + Langfuse 4.78.0; no LLM calls |
+| Interrupted-release recovery | Separate GET-only reconciliation; completed/pending/conflicting/unknown classifications; unknown POST remains unknown | Lost response, disk failure, partial batch and concurrent-change tests; real injected lost PATCH recovered without another PATCH |
+| Transitive dependency checks | Server graph plus concrete raw/resolved hashes; task-time binding; fresh checks before/after writes and final completion | Nested child-label movement blocks previously passing evidence |
+| Application adoption | Actual SDK objects, independent consumer/deployment expectations, freshness, version/content/fallback checks | Actual cached old prompt reports not_adopted; fresh access matches release |
 
-Sources and exact versions are in [official-agent-tools.md](official-agent-tools.md) and [official-platform-contracts.md](official-platform-contracts.md). The audit covered the complete generated MCP catalogue, CLI resource inventory, official skills/plugin manifests and selected platform/SDK implementation. It was not a whole-platform security audit or tenant execution test.
+The current gates are green: **232 source tests, 224 installed-wheel tests,
+ten installed commands, 14 live assertions and six CI jobs**. These are distinct
+validation levels; do not add their counts as independent production scenarios.
+See [validation](validation.md) and [migration](migration-v05.md).
 
-## Alpha: implemented
+This adds a release evidence chain around official Langfuse capabilities. It
+does not claim broader feature superiority, official endorsement, authenticated
+execution, better model answers or atomic multi-prompt releases.
 
-- Default to staging; require an explicit, recorded direct-release opt-out.
-- Default to evaluation-required promotion; require an explicit, recorded structural-only opt-out.
-- Retain complete changed-target coverage, source/stage/snapshot hashes, stale-state checks and already-promoted reconciliation.
-- Create private exports/receipts on POSIX, avoid clobbering new export files and classify deeply nested JSON after a write as an uncertain outcome.
-- Include a captured-output example that computes JSON/answer-shape checks instead of asking a user to handwrite passing booleans. It uses trusted captured metadata, not authenticated execution proof.
-- Provide migration notes, an Agent Skill, source/wheel tests and a Python/OS CI matrix. Preserve the original Gist and attribution.
+## Next implementation order
 
-See [validation](validation.md) for completed checks and their limits. These are workflow controls, not a replacement for server permissions.
+### 1. Portable evidence bundles and CI provenance — target 0.6
 
-## Next: official experiment-result adapter and expected check policy
+**Problem:** receipts reference absolute local files and trust their producer.
+Moving a job artifact to another runner currently needs the original paths;
+a hash alone does not identify who produced it.
 
-This is the highest-value expansion. Use the official SDK or experiment action to run the application. Import its results into a versioned release-evidence contract.
+Implement a versioned bundle containing policy, snapshot, stage, dependency
+lock, capture and source-result manifests with relative references. Verify the
+bundle offline before resolving any remote target. Add an optional signed CI
+attestation binding the bundle digest to repository, workflow, commit and
+runner identity. Keep trusted signer/workflow expectations outside the bundle.
 
-Acceptance criteria:
+Acceptance:
 
-1. Every changed prompt has an explicit staged version in the task's execution metadata. Reject a latest/production selector or a run with no verifiable mapping; an experiment URL alone is insufficient.
-2. Capture dataset identity/version, case coverage, evaluator/task revision, model/config identity and original artifact hash. Hash dataset schema separately if relevant because schema changes are not dataset-versioned.
-3. Bind required checks and thresholds to a reviewed project policy, so a command cannot accidentally choose a weaker check set for promotion. Missing, failed, NaN, sampled-out or partially exported results must not silently pass.
-4. Preserve the source artifact and distinguish local evaluation completion from remote trace/score persistence. Test partial success, exporter failure, changed bindings and rejected promotion with fixtures from supported official versions.
-5. Keep SDK dependencies optional. Python v5 requires Python 3.11+; JS v6 requires Node 22+ and both need self-hosted Langfuse 4.59.0+ or Cloud. Publish actual tested combinations rather than inheriting these as a compatibility guarantee.
+- Validate an unchanged bundle on a second machine without original paths.
+- Reject path traversal, symlinks, duplicate files/keys, missing files, modified
+  data, wrong signatures, unauthorized workflows and replay against another
+  release. A supplied bundle must not choose its own trusted issuer.
+- Keep prompts/results private by default; produce an explicit content inventory
+  before any public upload. Never bundle credentials.
+- Preserve unsigned local compatibility with an explicit trust classification.
 
-Design details: [experiment adapter](experiment-adapter-design.md). This adapter and policy are **planned, not implemented in 0.4.0a1**.
+### 2. Remote experiment persistence verification — target 0.7
 
-## Next: read-only reconciliation
+**Problem:** local evaluation may finish while trace/score export fails, is
+sampled out or has not yet persisted. The current remote completion value is a
+trusted caller statement, not a built-in server audit.
 
-Add a command that reports a stopped release as completed, pending, conflicting or still unknown without making a write. It should retain the original report, inspect exact versions and labels, and identify candidate creations by reviewed content/config/metadata without treating similarity as proof of identity.
+Use official read APIs to verify the expected experiment, cases, traces and
+scores against the captured run identity. Handle pagination and eventual
+consistency with bounded retries and a recorded deadline.
 
-Acceptance criteria: simulate a committed POST with a lost response, a committed PATCH with a lost response, an unrelated newer version, a concurrent label move and a disk failure. Inspection sends no POST/PATCH/DELETE. A separate intentional resume may use the reviewed evidence; it must not retry an unknown POST automatically.
+Acceptance:
 
-A local operation lock may prevent two processes sharing one release directory from overlapping. It must not be described as a distributed lock or compare-and-swap across other API clients.
+- Confirm every required case/score and its typed value before declaring remote
+  persistence verified. A URL, aggregate average or successful flush is insufficient.
+- Fail clearly on missing/duplicate results, exporter failure, sampling,
+  unauthorized reads, timeout and a run from another project or dataset version.
+- Keep local completion and remote persistence as separate statuses. Never
+  replace a failed check with remote metadata or perform model calls implicitly.
 
-## Later: resolved dependencies and consumer adoption
+### 3. Compatibility fixtures and JavaScript capture — target 0.8
 
-A parent version can reference child labels that move. An optional dependency lock should record transitive concrete versions, raw and resolved hashes, and the consuming SDK/compiler; reject changed dependencies before promotion. Test nested labels, cycles, missing/non-text children and partial batch failure. Use Langfuse's resolver rather than inventing another prompt language.
+**Problem:** the live proof currently covers one Python SDK/server combination.
 
-Separately add an application-side adoption probe that observes the actual prompt version used after a label move. Account for SDK stale-while-revalidate caches, fallbacks, server caches and timeouts. Do not equate API readback with traffic adoption. Rollback remains an explicit label operation with current-state review.
+Add a task-time capture helper for the official JavaScript SDK, using the same
+policy/evidence contract. Add recorded official artifact fixtures and disposable
+server tests for explicitly supported SDK/server pairs and architectures.
 
-Signed CI attestations may then authenticate the runner/policy/artifact chain. Unsigned hashes alone do not provide that property. Choose this after identifying a consumer and trust boundary.
+Acceptance:
 
-## Conditional distribution and upstream contribution
+- Exercise JS 6.x on Node 22+ and supported Python SDKs with the same passing,
+  failing, nested-dependency, cache and fallback cases.
+- Test actual minimum supported server behavior rather than deriving it from an
+  SDK's advertised minimum. Missing resolver evidence must fail closed.
+- Publish the tested matrix and unsupported combinations. Keep core dependencies
+  optional; do not build a second experiment engine or prompt compiler.
 
-A release-only MCP interface is justified if a real consuming client cannot run the CLI. Its tools should expose this workflow's previews, evidence and reconciliation; broad prompt CRUD already exists upstream. Add a plugin manifest only after testing installation and invocation in the target client. The current skill has no telemetry hooks and requires no MCP server.
+### 4. Rollout observation over a time window — after consumer pilot
 
-A small upstream documentation contribution about ambiguous-write reconciliation remains useful if the issue still exists and maintainers want it. Recheck current contribution rules and present a minimal reproduction. Keep the Python engine in this repository; do not submit a large workflow or code bundle to the official skills repository by assumption.
+**Problem:** one instrumented access proves only that access, not sustained
+adoption across applications.
 
-## Deliberate exclusions
+Aggregate observations over a reviewed window with expected consumer/deployment
+identities, freshness and sample-count requirements. Show missing consumers,
+stale caches, fallback rates and dependency mismatches separately. Start with
+one real consuming application and use its feedback to choose thresholds.
 
-No general Langfuse CLI/MCP clone, hosted evaluation service, dataset UI, coding-agent tracing plugin, automatic model-judged promotions, unreviewed rollback or production deployment bundle. No promise of higher model quality, atomic batches or official endorsement. Expand when a concrete release problem and a testable improvement justify the maintenance.
+Acceptance:
+
+- Mixed old/new versions, missing consumers and replayed observations cannot
+  produce a complete rollout result.
+- State measured coverage and sampling limits; do not describe samples as all
+  traffic. Reuse CI provenance where observations can be authenticated.
+- Produce a reviewed recovery/rollback proposal when useful. No automatic
+  rollback or retry of an uncertain POST.
+
+## Conditional work
+
+A local operation lock could prevent two processes from sharing one release
+folder; it would not provide distributed exclusion against other clients.
+An explicit recovery plan may build on reconciliation, but unknown creations
+must still require review unless the server supplies a real idempotency contract.
+
+A narrow release-only MCP interface is worthwhile only when an identified
+consumer cannot invoke these commands. Official prompt CRUD, experiment UI,
+general CLI/MCP and coding-agent telemetry already exist upstream; duplicating
+them would add maintenance without solving the release problems above.
+
+An upstream contribution should start with a small reproduction or documentation
+clarification and the maintainers' current contribution rules. No external
+submission or outreach is implied by this roadmap.

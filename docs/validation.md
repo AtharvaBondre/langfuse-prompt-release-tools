@@ -8,6 +8,8 @@ Recorded **11 November 2026** for **0.5.0a1**. These are separate checks, not a 
 | Fresh installed wheel outside checkout | 224 portable tests passed; all ten installed command help checks passed with no runtime dependencies. |
 | Actual official SDK/server workflow | All 14 assertions passed with Python SDK 5.2.0 and local Langfuse 4.78.0 on Linux ARM64. One real label PATCH, zero model calls. |
 | Official Experiment Action result schema | Three actual SDK-generated artifacts (failed, passing before drift, passing after drift) validated against the official v1 schema from Action v1.0.12. |
+| Unpacked source archive | 232 tests passed outside the checkout; private runtime files were absent from the archive. |
+| GitHub CI | All six implementation jobs passed on [53e2eae](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/actions/runs/43014213742). |
 | Optional SDK environment | `pip check` passed. |
 | Independent review | Fixed and regression-tested acceptance of post-hoc adoption locks and stale final verification on already-promoted paths. No remaining concrete findings from that review. |
 
