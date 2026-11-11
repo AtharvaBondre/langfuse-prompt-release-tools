@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import argparse
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -46,6 +46,10 @@ INFRA_IMAGES = {
 MEMORY_LIMITS = {"langfuse-web": "2048m", "langfuse-worker": "1536m", "clickhouse": "1536m",
                  "minio": "384m", "postgres": "512m", "redis": "256m"}
 HOST = "http://127.0.0.1:13830"
+
+
+class MissingApis(Exception):
+    """Only an observed 404 on the healthy, authenticated older server."""
 
 
 def clean_environment():
@@ -113,9 +117,25 @@ def request_json(path, values=None):
         return exc.code, None
 
 
+def check_runner():
+    if (os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_OS") != "Linux"
+            or os.environ.get("RUNNER_ARCH") != "X64" or platform.machine() not in ("x86_64", "AMD64")):
+        raise ValueError("Live execution requires an isolated GitHub Linux X64 runner")
+
+
+def check_docker_endpoint():
+    process = subprocess.run(["docker", "--context", "default", "context", "inspect", "default",
+                              "--format", "{{.Endpoints.docker.Host}}"],
+                             env=clean_environment(), capture_output=True, text=True, timeout=10)
+    if process.returncode or process.stdout.strip() != "unix:///var/run/docker.sock":
+        raise ValueError("Refusing a Docker endpoint outside the isolated runner")
+
+
 def cleanup(private, public):
     if not (private / "demo.json").exists():
         return 0
+    check_runner()
+    check_docker_endpoint()
     values = read_values(private)
     process = subprocess.run(compose_command(private) + ["down", "--volumes", "--remove-orphans", "--timeout", "15"],
                              env=clean_environment(), capture_output=True, text=True, timeout=90)
@@ -127,9 +147,7 @@ def cleanup(private, public):
 
 
 def run(version, private, public):
-    if (os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_OS") != "Linux"
-            or os.environ.get("RUNNER_ARCH") != "X64" or platform.machine() not in ("x86_64", "AMD64")):
-        raise ValueError("Live execution requires an isolated GitHub Linux X64 runner")
+    check_runner()
     public.mkdir(mode=0o700, exist_ok=False)
     values, images = configure(private, version)
     env = clean_environment()
@@ -138,6 +156,8 @@ def run(version, private, public):
                "memory_limits": MEMORY_LIMITS, "docker_context": "default", "host": HOST,
                "source_commit": os.environ.get("GITHUB_SHA"), "checks": [], "model_calls": 0}
     log = public / "sanitized.log"
+    write_new(log, "")
+    result_code = 1
 
     def execute(label, argv, *, timeout, environment=env):
         started = time.monotonic()
@@ -158,10 +178,7 @@ def run(version, private, public):
         return process.stdout
 
     try:
-        endpoint = execute("Check Docker endpoint", ["docker", "--context", "default", "context", "inspect", "default",
-                           "--format", "{{.Endpoints.docker.Host}}"], timeout=10).strip()
-        if endpoint != "unix:///var/run/docker.sock":
-            raise ValueError("Refusing a Docker endpoint outside the isolated runner")
+        check_docker_endpoint()
         command = compose_command(private)
         execute("Pull pinned AMD64 images", command + ["pull", "--quiet"], timeout=300)
         for name, ref in images.items():
@@ -187,9 +204,14 @@ def run(version, private, public):
             if time.monotonic() >= deadline:
                 raise RuntimeError("Server health/project initialization exceeded 300 seconds")
             time.sleep(2)
-        probe_paths = ["/api/public/experiments?limit=1&fields=core",
-                       "/api/public/experiment-items?experimentId=synthetic-compatibility-probe&limit=1&fields=core,dataset,io",
-                       "/api/public/v3/scores?limit=1&fields=subject"]
+        now = datetime.now(timezone.utc)
+        window = {"fromStartTime": (now - timedelta(minutes=5)).isoformat(), "toStartTime": now.isoformat()}
+        probe_paths = [
+            "/api/public/experiments?" + urllib.parse.urlencode({**window, "limit": 1, "fields": "core"}),
+            "/api/public/experiment-items?" + urllib.parse.urlencode({**window,
+                "experimentId": "00000000000000000000000000000000", "limit": 1, "fields": "core,dataset,io"}),
+            "/api/public/v3/scores?" + urllib.parse.urlencode({"limit": 1, "fields": "subject"}),
+        ]
         probes = []
         for path in probe_paths:
             code, _ = request_json(path, values)
@@ -199,7 +221,7 @@ def run(version, private, public):
             if version == "4.59.0" and all(row["http_status"] in (200, 404) for row in probes) and any(row["http_status"] == 404 for row in probes):
                 summary.update(status="unsupported_missing_apis", missing_apis=[row["path"] for row in probes if row["http_status"] == 404],
                                support_claim="Rejected: required remote-evidence APIs absent on healthy authenticated server")
-                return 0
+                raise MissingApis
             raise RuntimeError("Required API compatibility probe failed (not treated as missing-API success)")
         demo_env = {**env, "LANGFUSE_PUBLIC_KEY": values["LANGFUSE_PUBLIC_KEY"],
                     "LANGFUSE_SECRET_KEY": values["LANGFUSE_SECRET_KEY"], "LANGFUSE_BASE_URL": HOST,
@@ -216,12 +238,14 @@ def run(version, private, public):
                 raise RuntimeError(name + " did not report a successful synthetic-only run")
             summary["checks"].extend({"demo": name, "check": row} for row in result["checks"])
         summary.update(status="passed", support_claim="Full requested synthetic SDK/server workflow passed")
-        return 0
+        result_code = 0
+    except MissingApis:
+        result_code = 0
     except Exception as exc:
         summary["error"] = redact(str(exc), values)
-        return 1
     finally:
         try:
+            check_docker_endpoint()
             execute("Final service state", compose_command(private) + ["ps", "--format", "json"], timeout=20)
             execute("Final service logs", compose_command(private) + ["logs", "--no-color", "--tail", "100"], timeout=30)
         except Exception as exc:
@@ -232,10 +256,15 @@ def run(version, private, public):
         except Exception as exc:
             summary["cleanup_status"] = "failed"
             summary["cleanup_error"] = redact(str(exc), values)
+        if summary["cleanup_status"] != "complete":
+            result_code = 1
+            summary["status_before_cleanup_failure"] = summary["status"]
+            summary["status"] = "failed"
         summary["completed_at_utc"] = datetime.now(timezone.utc).isoformat()
         write_new(public / "summary.json", json.dumps(summary, indent=2) + "\n")
         print(json.dumps({"status": summary["status"], "server_version": version,
                           "checks_passed": len(summary["checks"]), "cleanup_status": summary["cleanup_status"]}))
+    return result_code
 
 
 def main():

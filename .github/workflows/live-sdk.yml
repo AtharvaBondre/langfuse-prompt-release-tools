@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 18
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 2
       matrix:
         server: ['4.78.0', '4.59.0']
     steps:
