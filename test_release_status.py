@@ -282,8 +282,15 @@ class StatusTests(unittest.TestCase):
 
     def test_relative_manifest_is_resolved_once(self):
         self.prepare()
-        relative = os.path.relpath(self.manifest, Path.cwd())
-        report = status.inspect_release(relative, now=self.now)
+        # Windows runners keep the checkout and temporary files on different
+        # drives. A relative path must start on the fixture's own drive.
+        original = Path.cwd()
+        try:
+            os.chdir(self.root.parent)
+            relative = os.path.relpath(self.manifest, Path.cwd())
+            report = status.inspect_release(relative, now=self.now)
+        finally:
+            os.chdir(original)
         self.assertEqual(str(self.manifest.resolve()), report["manifest"])
 
     def test_text_summary_escapes_terminal_control_characters(self):
