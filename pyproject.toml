@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "langfuse-prompt-release-tools"
-version = "0.6.0a1"
+version = "0.7.0a1"
 description = "Reviewed prompt snapshots, staged versions, evidence checks and explicit label promotion"
 readme = "README.md"
 license = "MIT"
@@ -31,6 +31,8 @@ langfuse-release-verify = "verify_langfuse_prompts:main"
 langfuse-release-promote = "promote_langfuse_prompts:main"
 langfuse-release-evaluate = "evaluate_langfuse_release:main"
 langfuse-release-policy = "langfuse_release_policy:main"
+langfuse-release-policy-draft = "langfuse_release_policy_draft:main"
+langfuse-release-status = "langfuse_release_status:main"
 langfuse-release-import-experiment = "import_langfuse_experiment:main"
 langfuse-release-reconcile = "reconcile_langfuse_release:main"
 langfuse-release-dependencies = "langfuse_release_dependencies:main"
@@ -65,6 +67,8 @@ py-modules = [
   "promote_langfuse_prompts",
   "evaluate_langfuse_release",
   "langfuse_release_policy",
+  "langfuse_release_policy_draft",
+  "langfuse_release_status",
   "import_langfuse_experiment",
   "reconcile_langfuse_release",
   "langfuse_release_dependencies",

@@ -5,20 +5,20 @@ description: Pin release policy, stage Langfuse prompts, bind official experimen
 
 # Release reviewed Langfuse prompts
 
-Use [langfuse-prompt-release-tools](https://github.com/AtharvaBondre/langfuse-prompt-release-tools) 0.6.0a1. This independent release workflow complements Langfuse's official SDK, experiments, resolver and general-purpose skill.
+Use [langfuse-prompt-release-tools](https://github.com/AtharvaBondre/langfuse-prompt-release-tools) 0.7.0a1. This independent release workflow complements Langfuse's official SDK, experiments, resolver and general-purpose skill.
 
 ## Select the release
 
 Use the host, project, prompt names and deployment label already selected by the user. Continue within existing authorization. Read project credentials from the environment or secret manager; never print or save them in prompts, reports or commands.
 
-Confirm installed CLI arguments with `--help`. The fifteen commands and their source modules are listed in the repository's PACKAGING.md. Core commands require Python 3.10+; the optional official SDK example requires 3.11+.
+Confirm installed CLI arguments with `--help`. The seventeen commands and their source modules are listed in the repository's PACKAGING.md. Core commands require Python 3.10+; the optional official SDK example requires 3.11+.
 
 Staging advances `latest`. Account for consumers of that label. Explicit tags affect every version.
 
 ## Execute the release
 
 1. Export the explicit baseline with `langfuse-release-pull` into a new private directory. Edit the prompt files and review their diff.
-2. Review the application's independent policy: exact dataset cases and hashes, task/evaluator revisions, model/config identity, typed score thresholds and whether remote persistence is required. Bind it before staging with `langfuse-release-policy`. Never weaken policy to make a result pass.
+2. Use `langfuse-release-policy-draft` to compute fingerprints from selected local cases and source files when useful. It creates a draft, performs no remote calls and never pins or chooses thresholds. Review the application's independent policy: exact dataset cases and hashes, task/evaluator revisions, model/config identity, typed score thresholds and whether remote persistence is required. Bind it before staging with `langfuse-release-policy`. Never weaken policy to make a result pass.
 3. Preview and apply staging with `langfuse-release-publish`. Review every changed target and created version. The interface-change guard is not a model-quality or JSON Schema test.
 4. Capture a dependency lock with `langfuse-release-dependencies`, including SDK/compiler identity. Use the server resolver; do not invent another prompt language. Lock even dependency-free roots.
 5. Run the application's actual task with the official SDK or Experiment Action. Initialize execution capture before the run with the manifest, stage and lock. Fetch exact staged versions inside the task, record returned objects and resolved hashes before evaluating their outputs. Never reconstruct a supposed execution by adding version numbers afterward.
@@ -46,3 +46,7 @@ Coordinate writers. The server API has no transaction or compare-and-swap for th
 Unpinned legacy exports still support the old recorder and explicit direct/structural modes. Never use those modes to bypass a selected policy or failed experiment. A legacy promotion without its own pre-promotion lock binding cannot establish verified adoption. See docs/migration-v05.md.
 
 Report created versions, promoted labels, failed checks, reconciliation classifications and observed consumer outcomes separately. Include remaining unknowns; never equate stored content, application contract checks, model quality and audience outcomes.
+
+## Read local release status
+
+Use `langfuse-release-status --workspace RELEASE_DIRECTORY` for a human-readable inspection or `--format json` for structured output. It sends no remote requests and writes no files. Keep recorded outcomes, reconstructed local checks, freshness and unknown server state distinct. Resolve ambiguous evidence with explicit report paths; do not treat a successful promotion record as application adoption or authorization to write. See `docs/release-status.md`.

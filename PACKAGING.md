@@ -1,6 +1,6 @@
 # Install the release commands
 
-Use Python 3.10 or later. Keep the source files in one directory, including `pyproject.toml`. The fifteen release commands use Python's standard library; the Python package has no required runtime dependencies. Signature verification additionally requires the official GitHub CLI (`gh`). The separate JavaScript helper requires Node 22+ and its locked SDK package.
+Use Python 3.10 or later. Keep the source files in one directory, including `pyproject.toml`. The seventeen release commands use Python's standard library; the Python package has no required runtime dependencies. Signature verification additionally requires the official GitHub CLI (`gh`). The separate JavaScript helper requires Node 22+ and its locked SDK package.
 
 ## Build and install a wheel
 
@@ -13,7 +13,7 @@ python3 -m venv .venv-build
 
 python3 -m venv .venv
 .venv/bin/python -m pip install --no-index --no-deps \
-  dist/langfuse_prompt_release_tools-0.6.0a1-py3-none-any.whl
+  dist/langfuse_prompt_release_tools-0.7.0a1-py3-none-any.whl
 ```
 
 Once the build tools are installed, both the wheel build and its installation run without contacting a package index. Windows virtual environments use `Scripts` in place of `bin`.
@@ -26,6 +26,8 @@ Once the build tools are installed, both the wheel build and its installation ru
 | `langfuse-release-evaluate` | `evaluate_langfuse_release.py` | Validate the supplied evaluation evidence |
 | `langfuse-release-promote` | `promote_langfuse_prompts.py` | Preview or apply an explicit label promotion |
 | `langfuse-release-policy` | `langfuse_release_policy.py` | Pin reviewed cases and thresholds before staging |
+| `langfuse-release-policy-draft` | `langfuse_release_policy_draft.py` | Generate or validate a reviewable policy from local inputs |
+| `langfuse-release-status` | `langfuse_release_status.py` | Inspect local release evidence in a terminal view or JSON |
 | `langfuse-release-import-experiment` | `import_langfuse_experiment.py` | Import typed official experiment results and execution capture |
 | `langfuse-release-dependencies` | `langfuse_release_dependencies.py` | Capture/check the server-resolved dependency closure |
 | `langfuse-release-reconcile` | `reconcile_langfuse_release.py` | Inspect interrupted outcomes without writes |
@@ -56,7 +58,7 @@ To create a source distribution with the same prepared build environment:
 .venv-build/bin/python -c 'from setuptools.build_meta import build_sdist; build_sdist("dist")'
 ```
 
-`MANIFEST.in` includes the workflow documents, portable tests, schema-review fixtures and disposable-demo files. These files are available when you unpack the source archive. The wheel installs only the sixteen runtime modules, fifteen commands and package metadata, including license notices. It does not install the demo, tests or schema checker. The release tools are MIT-licensed; `THIRD-PARTY-NOTICES.md` preserves the notice for the derived Compose configuration.
+`MANIFEST.in` includes the workflow documents, portable tests, schema-review fixtures and disposable-demo files. These files are available when you unpack the source archive. The wheel installs only the eighteen runtime modules, seventeen commands and package metadata, including license notices. It does not install the demo, tests or schema checker. The release tools are MIT-licensed; `THIRD-PARTY-NOTICES.md` preserves the notice for the derived Compose configuration.
 
 ## Run the source tests
 
@@ -89,4 +91,4 @@ After installing the wheel into the test environment, run:
 .venv/bin/python tools/smoke_installed.py
 ```
 
-This copies the portable tests to a temporary directory, verifies that imports come from the installed package, runs those tests and checks all fifteen installed entrypoints. It removes inherited Langfuse environment settings from child processes and makes no tenant calls. The source archive includes the skill and guides; the wheel remains limited to runtime modules and metadata.
+This copies the portable tests and required example fixtures to a temporary directory, verifies that imports come from the installed package, runs those tests and checks all seventeen installed entrypoints. It removes inherited Langfuse environment settings from child processes and makes no tenant calls. The source archive includes the skill and guides; the wheel remains limited to runtime modules and metadata.

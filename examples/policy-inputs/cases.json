@@ -1,0 +1,12 @@
+[
+  {
+    "id": "one",
+    "input": {"answer": "A pinned prompt version is immutable."},
+    "expected_output": {"answer": "A pinned prompt version is immutable."}
+  },
+  {
+    "id": "two",
+    "input": {"answer": "A label can move between versions."},
+    "expected_output": {"answer": "A label can move between versions."}
+  }
+]

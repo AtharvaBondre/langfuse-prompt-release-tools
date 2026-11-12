@@ -1,0 +1,51 @@
+name: Demo or setup feedback
+description: Tell us which step failed or left you unsure what to do next.
+title: "[Setup] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A failed attempt or unclear instruction is useful feedback. Share only the details needed to reproduce it. Omit API keys, connection strings, private prompts and customer data.
+  - type: input
+    id: version
+    attributes:
+      label: Toolkit version or commit
+      description: For a forked Actions run, include the commit or a public run link.
+    validations:
+      required: true
+  - type: dropdown
+    id: route
+    attributes:
+      label: What were you trying?
+      options:
+        - GitHub Actions demo
+        - Local Docker demo
+        - Policy draft or validation
+        - Release status inspection
+        - Integration into my own task
+    validations:
+      required: true
+  - type: textarea
+    id: step
+    attributes:
+      label: Exact step or command
+      description: Include the guide section and what you expected to happen. Redact private paths or arguments.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What happened?
+      description: Include a redacted error, relevant report fields, or the wording that was unclear. A successful run with confusing output is useful too.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: If relevant, include OS, Python/Node and Langfuse SDK/server versions. Leave unknown versions unset.
+  - type: textarea
+    id: use
+    attributes:
+      label: Application use, if relevant
+      description: Optional. Was this only a demo, or did you integrate it into a task? Describe only what you tried; no private application details are needed.

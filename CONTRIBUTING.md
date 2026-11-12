@@ -2,6 +2,8 @@
 
 Start with a reproducible release problem: the target Langfuse version, a synthetic prompt, expected label/version state, and observed behavior. Do not attach project keys, private prompts or raw tenant receipts.
 
+For a first attempt, use the [demo or setup feedback form](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/issues/new?template=demo-feedback.yml). Name the toolkit version, exact step, expected result and redacted output. An unclear instruction is useful feedback even when the command succeeds. Distinguish trying the demo from integrating it into an application.
+
 Keep the core runtime dependency-free. Use official Langfuse SDKs or tools for optional integrations rather than rebuilding their APIs. The [roadmap](docs/roadmap.md) lists prioritized work and acceptance criteria.
 
 Use the [customer workflows](docs/customer-workflows.md) to connect a proposal to a release decision. The [community contribution guide](docs/community-contributions.md) describes small pieces that could help upstream Langfuse, including reproduction requirements and the distinction between an observed integration issue and an upstream defect.

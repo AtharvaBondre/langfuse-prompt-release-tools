@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0a1 — 2026-11-12
+
+- Generate reviewable policy drafts from selected cases, UTF-8 source files and explicit score requirements; compute the existing identity fingerprints and validate before separate pinning.
+- Inspect local release evidence with a readable terminal status view or stable JSON, retaining source references, freshness, ambiguity and the difference between promotion and observed app use.
+- Add example policy inputs, focused failure-mode tests, installation coverage for seventeen commands and first-use guides.
+- Preserve existing policy/capture/report contracts and remote mutation behavior. Both new commands operate without contacting Langfuse.
+
+See [migration](docs/migration-v07.md), [policy setup](docs/policy-setup.md) and [release status](docs/release-status.md).
+
 ## 0.6.0a1 — 2026-11-11
 
 - Transfer original release evidence in path-safe portable bundles and verify independently pinned GitHub CI provenance.

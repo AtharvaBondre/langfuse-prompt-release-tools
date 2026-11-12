@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "version": "0.7.0a1",
+  "recorded_at": "2026-11-12T06:16:02.496738+00:00",
+  "scope": "local source and distributable checks; exact-commit CI linked in GitHub release notes",
+  "source": {
+    "tests_run": 443,
+    "passed": 443,
+    "skipped": 0,
+    "python": "3.14.7",
+    "platform": "macOS ARM64"
+  },
+  "installed_wheel": {
+    "tests_run": 428,
+    "passed": 427,
+    "skipped": 1,
+    "skip_reason": "optional jsonschema dependency absent",
+    "entrypoints_passed": 17
+  },
+  "source_distribution": {
+    "tests_run": 443,
+    "passed": 443,
+    "skipped": 0
+  },
+  "javascript": {
+    "source_passed": 18,
+    "installed_consumer_passed": 18
+  },
+  "policy_helper_tests": 29,
+  "status_inspector_tests": 31,
+  "real_application_pilot": "explicitly deferred; no existing app/test environment",
+  "limits": [
+    "Tests overlap across environments.",
+    "Synthetic integration does not establish production adoption.",
+    "Local status performs no network or signature verification.",
+    "Hosted-dataset real-server scenario is not part of current live matrix."
+  ]
+}

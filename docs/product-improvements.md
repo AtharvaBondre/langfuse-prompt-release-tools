@@ -1,12 +1,12 @@
 # Product improvements after the 0.6 review
 
-Reviewed **11 November 2026** against the code, working examples, package checks and current official Langfuse sources.
+Reviewed **11 November 2026**; updated **12 November** with the 0.7 policy helper and local status view. The original assessment below explains why those changes were needed.
 
 ## Assessment
 
 The project covers more than the old README made clear. You can pin release requirements, capture the exact prompts used by a task, check nested dependencies, verify remote results, transfer evidence, inspect interrupted writes and observe application adoption. Python and JavaScript examples exercise those steps against real Langfuse servers.
 
-The first-use experience still asks too much of a new user. You assemble a policy, insert capture hooks, project SDK results into a common format and connect several commands. You then read several JSON reports to understand one release. Better documentation helps you do that work, but it does not remove it.
+The 0.6 first-use review found that users had to assemble a policy, insert capture hooks, project SDK results into a common format and connect several commands. They then read several JSON reports to understand one release. Version 0.7 adds a policy helper and a local status view. Capture wiring, evaluator selection and result projection still require application work.
 
 The strongest direction is to make this release workflow easier to adopt and harder to misconfigure. Langfuse already supplies experiments, prompt composition, CI guidance and general agent tools. We can add more value by improving the connections between those tools than by duplicating them.
 
@@ -26,7 +26,7 @@ The [customer workflows](customer-workflows.md) connect these capabilities to co
 
 ## Next implementation priorities
 
-These items are **planned**, not features available in 0.6. Acceptance criteria describe the evidence needed before marking them complete.
+Items 2 and 3 are implemented in 0.7 and link to their guides below. The remaining items are **planned**. Acceptance criteria describe the evidence needed before marking those items complete.
 
 ### 1. Bind the selected project before writes
 
@@ -38,21 +38,17 @@ Record the independently selected project ID in the export and check the project
 
 **Acceptance:** a wrong project produces zero prompt/label writes; the expected project comes from reviewed configuration; preview and apply enforce the same identity; errors explain which configuration to check without exposing keys.
 
-### 2. Generate and validate a policy draft
+### 2. Generate and validate a policy draft — implemented in 0.7
 
-**User benefit:** Start from real cases and source identities without writing hashes and JSON structure by hand.
+`langfuse-release-policy-draft` reads selected input/expected-output cases and an explicit spec, computes case/source/configuration fingerprints, and produces an exclusively created policy file. Users select score types and thresholds. Duplicate or malformed inputs get field-specific errors; candidate result fields cannot substitute for reviewed requirements.
 
-Add a helper that reads selected cases, computes fingerprints, records task/evaluator/model configuration and produces a reviewable policy draft. Ask users to choose score names, types and thresholds; do not derive an easier passing policy from candidate results. Offer validation before snapshot pinning.
+Generation makes no network calls. Validation is read-only. Pinning remains a separate explicit command. See [policy setup](policy-setup.md) and the [validation record](validation.md).
 
-**Acceptance:** a new user can produce a valid policy from the supported example; missing/duplicate cases and malformed check types get field-specific errors; generation performs no remote writes; the user reviews the draft before pinning.
+### 3. Explain release status in one place — implemented in 0.7
 
-### 3. Explain release status in one place
+`langfuse-release-status` provides a readable terminal view and structured JSON for a local release directory. It links conclusions to their source reports, checks local evidence consistency, and distinguishes evaluation, recorded promotion and instrumented application observations. Missing, ambiguous, conflicting and stale evidence remains visible.
 
-**User benefit:** Answer “Did testing pass, did the label move, and did my app receive it?” without opening several files.
-
-Add a read-only `status`/`inspect` command with a short terminal view and stable JSON output. Show the selected project/label, stage, evaluation, remote receipt age, dependency state, promotion and adoption coverage. Link each conclusion to its original report and give the next safe action.
-
-**Acceptance:** stale or absent evidence stays visible; a changed label cannot appear as confirmed application adoption; inspection sends no writes; readers can distinguish historical evidence from any fresh server check. Print explicit output paths across the CLI.
+Inspection makes no network calls and writes no files. It does not refresh server state or authorize promotion. See [release status](release-status.md) for report selection, scope and exit behavior.
 
 ### 4. Require a trusted signer during promotion when policy asks for it
 

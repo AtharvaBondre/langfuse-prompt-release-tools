@@ -75,7 +75,7 @@ Prepare these inputs before staging:
 
 The small [`policy_for()` example](../examples/sdk_experiment.py) builds a complete policy from its real cases and source fingerprints. [`verified_release_demo.py`](../examples/verified_release_demo.py) upgrades it to policy v2 and requires remote persistence. Use those as construction examples: replace the task, cases, revisions and checks together. Copying the demo's passing scores or identities would describe its task, not yours.
 
-Read the [policy fields and capture contract](experiment-evidence.md) while adapting your producer. A policy generator is planned; version 0.6 expects you to assemble and review this JSON. After step 3 exports the prompts, save the plain policy object inside that export as `release-review/policy.json`.
+Read the [policy fields and capture contract](experiment-evidence.md) while adapting your producer. Use the [policy-draft helper](policy-setup.md) to compute fingerprints from your selected cases, source files and explicit requirements. After step 3 exports the prompts, generate and review the plain policy object as `release-review/policy.json`. The helper does not choose acceptance thresholds or pin the draft for you.
 
 ## 3. Run a release with your own app
 

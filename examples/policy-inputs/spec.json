@@ -1,0 +1,18 @@
+{
+  "format_version": 1,
+  "id": "demo-answer-contract-v1",
+  "producer": {
+    "kind": "langfuse-python-sdk",
+    "schema_version": "v1",
+    "script_path": "examples/sdk_experiment.py"
+  },
+  "dataset": {"id": "local-release-demo", "name": "local-release-demo"},
+  "execution": {
+    "task_file": "examples/sdk_experiment.py",
+    "evaluator_file": "examples/sdk_experiment.py",
+    "model": {"provider": "local", "name": "deterministic-json-renderer", "config": {}}
+  },
+  "targets": [{"name": "example/answer", "case_ids": ["one", "two"]}],
+  "checks": [{"id": "answer-exact", "kind": "boolean", "operator": "eq", "threshold": true}],
+  "remote_export": "optional"
+}

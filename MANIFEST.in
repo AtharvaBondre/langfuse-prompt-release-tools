@@ -23,7 +23,7 @@ recursive-include tools *.py
 include test_captured_outputs.py
 include test_experiment_policy.py test_reconciliation.py
 include test_release_dependencies.py test_release_adoption.py test_release_integration.py
-recursive-include examples *.py *.md
+recursive-include examples *.py *.md *.json
 include .gitignore
 recursive-include .github *.yml *.md
 
@@ -37,3 +37,4 @@ recursive-include tests/fixtures *.json *.md *.txt
 include tests/fixtures/sdk-results/LICENSE.experiment-action
 include test_live_ci_orchestration.py .gitattributes
 include js/LICENSE
+include test_policy_draft.py test_release_status.py

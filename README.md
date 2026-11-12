@@ -4,7 +4,7 @@
 
 Use this toolkit alongside Langfuse to review a prompt change, test the candidate through your application, and move a deployment label after your required checks pass. You can verify stored experiment results, inspect an interrupted release, and check which version your instrumented app requests received.
 
-[Try the demo](#try-it-before-wiring-your-app) · [Get started](docs/getting-started.md) · [Customer workflows](docs/customer-workflows.md) · [Compare with native Langfuse](docs/langfuse-comparison.md) · [Download 0.6.0a1](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/releases/tag/v0.6.0a1)
+[Try the demo](#try-it-before-wiring-your-app) · [Get started](docs/getting-started.md) · [Customer workflows](docs/customer-workflows.md) · [Compare with native Langfuse](docs/langfuse-comparison.md) · [Download 0.7.0a1](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/releases/tag/v0.7.0a1)
 
 ![Release workflow: review prompt edits and required tests; test exact versions and nested prompts; verify cases and stored scores; promote a selected label; observe app requests and cache or fallback behavior.](docs/images/release-workflow.svg)
 
@@ -73,9 +73,29 @@ python -m pip install .
 langfuse-release-pull --help
 ```
 
-On Windows PowerShell, use `py -m venv .venv` and `.\.venv\Scripts\Activate.ps1` in place of the two environment commands above. The [release assets](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/releases/tag/v0.6.0a1) include a Python wheel, source archive, JavaScript helper and checksums.
+On Windows PowerShell, use `py -m venv .venv` and `.\.venv\Scripts\Activate.ps1` in place of the two environment commands above. The [release assets](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/releases/tag/v0.7.0a1) include a Python wheel, source archive, JavaScript helper and checksums.
 
 Install `.[example]` to run the Python SDK examples and run `npm ci --prefix js --ignore-scripts` for the JavaScript example. Signature verification uses the GitHub CLI, `gh`. The core Python package has no required third-party Python dependencies.
+
+## Write fewer hashes and read fewer reports
+
+Create a reviewable policy from selected cases and your task/evaluator source files:
+
+```bash
+langfuse-release-policy-draft --spec examples/policy-inputs/spec.json \
+  --cases examples/policy-inputs/cases.json --source-root . --out policy-draft.json
+langfuse-release-policy-draft --validate policy-draft.json
+```
+
+You choose the score types and thresholds before evaluating the candidate. The helper computes the fingerprints and checks the input fields. Review the draft, then use the separate policy-pin command. The [policy setup guide](docs/policy-setup.md) explains how to replace the example inputs.
+
+For an existing release folder, inspect its saved evidence in one terminal view:
+
+```bash
+langfuse-release-status --workspace ./release-review
+```
+
+The [status report](docs/release-status.md) keeps evaluation, label promotion and observed application use separate. It reads local evidence without contacting Langfuse. Missing, conflicting or stale evidence stays visible; a historical success does not confirm current server state.
 
 ## Take it into your release process
 
@@ -101,18 +121,18 @@ This example shows how to read three separate JSON reports. Version numbers are 
 
 You get the distinction between a passing experiment, a changed label and observed app use. Keep the reports together so a teammate can follow the release without reconstructing your terminal session.
 
-## Tested in 0.6, planned next
+## Validation and next work
 
-The current release is **0.6.0a1**. We ran **383 source tests**, tested the installed Python/JavaScript packages, and verified signed evidence on a second machine. The live suite passed **24 checks on Langfuse 4.59.0** and **38 on 4.78.0**, using Python SDK 5.2.0 and JS SDK 6.1.1 on Linux AMD64. [Validation details and CI links](docs/validation.md).
+The current release is **0.7.0a1**, adding policy setup and local release inspection. The [validation record](docs/validation.md) separates its checks from the earlier 0.6 SDK/server matrix. That matrix passed **24 checks on Langfuse 4.59.0** and **38 on 4.78.0**, using Python SDK 5.2.0 and JS SDK 6.1.1 on Linux AMD64.
 
-This remains an alpha for teams willing to integrate capture into their task. You inspect JSON reports today. Application observations cover the requests you instrument, and CI provenance identifies the builder and artifact. Native Langfuse authorization still controls server access. Use a dedicated project key set throughout a release; project identity checks before all mutation commands remain planned.
+This remains an alpha for teams willing to integrate capture into their task. The terminal status view links to the underlying JSON evidence. Application observations cover the requests you instrument, and CI provenance identifies the builder and artifact. Native Langfuse authorization still controls server access. Use a dedicated project key set throughout a release; project identity checks before all mutation commands remain planned.
 
-The next priorities are easier policy setup and a release-status view, project checks before writes, signer-required promotion, and stronger recovery controls. We have deferred an existing-application pilot until a suitable app/test environment is available. See the [product improvement plan](docs/product-improvements.md) and [implementation roadmap](docs/roadmap.md).
+The next priorities are project checks before writes, signer-required promotion, stronger recovery controls and less application integration work. We have deferred an existing-application pilot until a suitable app/test environment is available. See the [product improvement plan](docs/product-improvements.md) and [implementation roadmap](docs/roadmap.md).
 
 ## Project and contributions
 
 Atharva Bondre maintains this independent MIT project. It grew from the [original prompt-release Gist](https://gist.github.com/AtharvaBondre/3ad9d0654b5450d1e007728f67047fa0). Langfuse names identify the platform we integrate with; this is a community project.
 
-If you try it, an [issue](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/issues) with the SDK/server versions, redacted report and step that confused you will help improve the next release. See [contributing](CONTRIBUTING.md), [security](SECURITY.md), the [agent skill](skills/langfuse-prompt-release/SKILL.md), and [all fifteen commands](PACKAGING.md).
+If you try it, an [issue](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/issues) with the SDK/server versions, redacted report and step that confused you will help improve the next release. See [contributing](CONTRIBUTING.md), [security](SECURITY.md), the [agent skill](skills/langfuse-prompt-release/SKILL.md), and [all seventeen commands](PACKAGING.md).
 
 For Langfuse maintainers and contributors, the [community contribution guide](docs/community-contributions.md) identifies small examples, contract tests and release checks that could be reused upstream. Each proposal needs a reproduction and acceptance evidence before we ask anyone to adopt it.
