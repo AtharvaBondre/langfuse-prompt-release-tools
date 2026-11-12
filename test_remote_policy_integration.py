@@ -32,6 +32,13 @@ class RemotePolicyIntegrationTests(unittest.TestCase):
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
         self.root = self.fixture.root.resolve()
+        original_client = self.fixture.client
+        def client(*args, **kwargs):
+            api, backend = original_client(*args, **kwargs)
+            api.expected_project_id = PROJECT
+            backend.project_id = PROJECT
+            return api, backend
+        self.fixture.client = client
         original = self.fixture.policy
 
         def policy(*args, **kwargs):
@@ -85,6 +92,23 @@ class RemotePolicyIntegrationTests(unittest.TestCase):
             adapter.import_experiment(*values[2:6], remote_report_path=receipt_path, report_name="blocked.json")
         self.assertFalse((values[2].parent / "reports" / "blocked.json").exists())
         self.assertEqual([], values[1].requests)
+
+    def test_remote_policy_cannot_authorize_a_different_release_project(self):
+        values, _, _, _, _, report_path = self.imported()
+        api, backend, manifest = values[:3]
+        raw = json.loads(manifest.read_text())
+        raw["project_id"] = "another-release-project"
+        manifest.write_text(json.dumps(raw))
+        api.expected_project_id = backend.project_id = raw["project_id"]
+        backend.requests.clear()
+        for apply in (False, True):
+            with self.subTest(apply=apply), self.assertRaisesRegex(ReleaseError, "evaluation policy project differs"):
+                publish.release(api, manifest, apply=apply)
+            with self.subTest(apply=apply), self.assertRaisesRegex(ReleaseError, "evaluation policy project differs"):
+                promotion.promote(api, manifest, values[3], label="production", apply=apply,
+                                  evaluation_report=report_path, dependency_lock=values[9],
+                                  allow_unsigned_local=True)
+        self.assertEqual([], backend.requests)
 
     def test_v2_confirmed_receipt_is_bound_through_import_and_promotion(self):
         values, _, receipt, receipt_path, report, report_path = self.imported()

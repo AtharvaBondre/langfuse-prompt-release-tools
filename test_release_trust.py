@@ -78,7 +78,7 @@ class TrustedPromotionTests(unittest.TestCase):
         with patch("import_langfuse_experiment.read_object", side_effect=AssertionError("Old locators forbidden")):
             with self.enter() as evidence:
                 self.assertEqual(raw_evaluation, evidence.evaluation_report_path.read_bytes())
-                self.assertIn(str(self.values[5]), raw_evaluation.decode())
+                self.assertEqual(str(self.values[5]), json.loads(raw_evaluation)["execution_capture"]["file"])
                 self.assertEqual(raw_capture, (evidence.dependency_lock_path.parent / "capture.json").read_bytes())
                 _, snapshot = load_snapshot(evidence.manifest_path)
                 stage = json.loads(evidence.stage_report_path.read_text())
@@ -194,6 +194,7 @@ class TrustedPromotionTests(unittest.TestCase):
         with self.enter() as evidence:
             outside = self.root / "outside.json"
             outside.write_bytes(evidence.stage_report_path.read_bytes())
+            evidence.stage_report_path.chmod(0o600)  # Clear Windows read-only attribute for tamper injection.
             evidence.stage_report_path.unlink()
             evidence.stage_report_path.symlink_to(outside)
             with self.assertRaisesRegex(ReleaseError, "symlinks"):

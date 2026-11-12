@@ -293,6 +293,11 @@ def selected_project(client, project_id=None, *, snapshot=None):
             raise ReleaseError("Legacy snapshot has no project binding; re-export into a new directory before remote operations.")
         if snapshot["project_id"] != expected:
             raise ReleaseError("Snapshot project ID does not match the independently selected target project.")
+        binding = snapshot.get("evaluation_policy")
+        policy = binding.get("policy") if isinstance(binding, dict) else None
+        remote = policy.get("remote_verification") if isinstance(policy, dict) else None
+        if remote is not None and (not isinstance(remote, dict) or remote.get("project_id") != expected):
+            raise ReleaseError("Remote evaluation policy project differs from the release destination project.")
     return expected
 
 
