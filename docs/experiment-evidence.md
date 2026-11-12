@@ -71,7 +71,7 @@ project-scoped keys together in a dedicated environment for this release.
    reviewed release instead of binding an old run to a new lock.
 
    ```sh
-   langfuse-release-promote --host "$LANGFUSE_HOST" \
+   langfuse-release-promote --allow-unsigned-local --host "$LANGFUSE_HOST" --project-id "$LANGFUSE_PROJECT_ID" \
      --manifest release-review/prompt-index.json \
      --stage-report release-review/reports/stage.json --label production \
      --evaluation-report release-review/reports/evaluation.json \
@@ -79,7 +79,7 @@ project-scoped keys together in a dedicated environment for this release.
      --report promotion-preview.json
 
    # After reviewing the preview, apply using a new report filename.
-   langfuse-release-promote --host "$LANGFUSE_HOST" \
+   langfuse-release-promote --allow-unsigned-local --host "$LANGFUSE_HOST" --project-id "$LANGFUSE_PROJECT_ID" \
      --manifest release-review/prompt-index.json \
      --stage-report release-review/reports/stage.json --label production \
      --evaluation-report release-review/reports/evaluation.json \
@@ -132,7 +132,7 @@ the demo's passing scores are not evidence for another application.
 Policy v2 with `remote_export: optional` omits `remote_verification`. This is an
 explicit local-evidence choice and does not establish remote persistence. Policy
 v1 remains readable for older workflows; see its limitations below and the
-[0.6 migration guide](migration-v06.md).
+[0.8 migration guide](migration-v08.md).
 
 Boolean checks accept only `kind: boolean`, `operator: eq` and an actual boolean
 threshold. Numeric checks accept finite numbers with `eq`, `gte` or `lte`.

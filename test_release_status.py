@@ -41,7 +41,7 @@ class StatusTests(unittest.TestCase):
         self.root = self.manifest.parent
         if promoted:
             self.promotion = promotion.promote(self.api, self.manifest, self.stage, label="production", apply=True,
-                report_name="promotion.json", evaluation_report=self.evaluation_path, dependency_lock=self.lock_path)
+                report_name="promotion.json", evaluation_report=self.evaluation_path, dependency_lock=self.lock_path, allow_unsigned_local=True)
             self.promotion_path = self.root / "reports" / "promotion.json"
         self.now = datetime.now(timezone.utc) + timedelta(seconds=2)
         self.backend.requests.clear()
@@ -52,6 +52,21 @@ class StatusTests(unittest.TestCase):
 
     def write(self, path, value):
         path.write_text(json.dumps(value))
+
+    def remote_fixture(self):
+        fixture = remote_fixtures.RemotePolicyIntegrationTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        # Export and remote evaluation must refer to the same synthetic project.
+        # Set identity before the fixture builds its snapshot and evidence hashes.
+        original_client = fixture.fixture.client
+        def client(*args, **kwargs):
+            api, backend = original_client(*args, **kwargs)
+            api.expected_project_id = remote_fixtures.PROJECT
+            backend.project_id = remote_fixtures.PROJECT
+            return api, backend
+        fixture.fixture.client = client
+        return fixture
 
     def observation(self, *, version=8):
         return adoption._capture_value("example", version, "text", self.api.get("example", version=8)["prompt"], {}, False,
@@ -306,7 +321,61 @@ class StatusTests(unittest.TestCase):
         values = fixture.passing_evidence()
         report = status.inspect_release(values[2])
         self.assertEqual("passed", report["sections"]["evaluation"]["state"])
+        self.assertEqual("synthetic-project", report["project_id"])
+        self.assertEqual("snapshot_binding", report["project_identity_source"])
+
+    def test_v2_snapshot_displays_its_project_without_a_remote_policy(self):
+        api, backend = self.fixture.client()
+        manifest = self.fixture.snapshot(api)
+        backend.requests.clear()
+        report = status.inspect_release(manifest)
+        self.assertEqual("synthetic-project", report["project_id"])
+        self.assertEqual("snapshot_binding", report["project_identity_source"])
+        self.assertIn("Project: synthetic-project (snapshot_binding)", status.render_text(report))
+        self.assertEqual([], backend.requests)
+
+    def test_v1_snapshot_without_project_binding_remains_readable(self):
+        api, _ = self.fixture.client()
+        manifest = self.fixture.snapshot(api)
+        raw = json.loads(manifest.read_text())
+        raw["format_version"] = 1
+        del raw["project_id"]
+        self.write(manifest, raw)
+        report = status.inspect_release(manifest)
         self.assertIsNone(report["project_id"])
+        self.assertEqual("not_recorded", report["project_identity_source"])
+
+    def test_v1_snapshot_retains_legacy_remote_policy_project_fallback(self):
+        import langfuse_release_policy as policies
+        api, _ = self.fixture.client()
+        manifest = self.fixture.snapshot(api)
+        policy = self.fixture.policy()
+        policy.update(format_version=2, remote_export="required", remote_verification={
+            "project_id": "legacy-evaluation-project", "dataset_kind": "local", "max_age_seconds": 60})
+        policy_path = manifest.parent / "policy.json"
+        self.write(policy_path, policy)
+        policies.pin_policy(manifest, policy_path)
+        raw = json.loads(manifest.read_text())
+        raw["format_version"] = 1
+        del raw["project_id"]
+        self.write(manifest, raw)
+        report = status.inspect_release(manifest)
+        self.assertEqual("legacy-evaluation-project", report["project_id"])
+        self.assertEqual("pinned_remote_verification_policy", report["project_identity_source"])
+
+    def test_conflicting_projects_keep_snapshot_target_and_mark_remote_invalid(self):
+        fixture = self.remote_fixture()
+        values, *_ = fixture.imported()
+        raw = json.loads(values[2].read_text())
+        raw["project_id"] = "different-destination"
+        self.write(values[2], raw)
+        report = status.inspect_release(values[2])
+        self.assertEqual("different-destination", report["project_id"])
+        self.assertEqual("snapshot_binding", report["project_identity_source"])
+        self.assertEqual("invalid", report["sections"]["remote"]["state"])
+        self.assertIn("remote policy project differs", report["sections"]["remote"]["messages"][0])
+        self.assertTrue(report["warnings"])
+        self.assertEqual("attention", report["status"])
 
     def test_legacy_report_cannot_claim_an_unknown_format(self):
         fixture = evaluation_fixtures.EvaluationGateTests(); fixture.setUp(); self.addCleanup(fixture.doCleanups)
@@ -317,7 +386,7 @@ class StatusTests(unittest.TestCase):
         self.assertEqual("invalid", report["sections"]["evaluation"]["state"])
 
     def test_remote_receipt_reports_project_and_current_staleness(self):
-        fixture = remote_fixtures.RemotePolicyIntegrationTests(); fixture.setUp(); self.addCleanup(fixture.doCleanups)
+        fixture = self.remote_fixture()
         values, _, receipt, _, _, report_path = fixture.imported()
         fixture.promote(values, report_path)
         at = datetime.fromisoformat(receipt["checked_at_utc"]) + timedelta(seconds=61)
@@ -325,11 +394,12 @@ class StatusTests(unittest.TestCase):
         self.assertEqual("passed", report["sections"]["evaluation"]["state"], report["sections"]["evaluation"])
         self.assertEqual("stale", report["sections"]["remote"]["state"], report["sections"]["remote"])
         self.assertEqual(receipt["project_id"], report["project_id"])
+        self.assertEqual("snapshot_binding", report["project_identity_source"])
         self.assertEqual("recorded_promoted", report["sections"]["promotion"]["state"])
         self.assertEqual("refresh_remote_verification", report["next_steps"][0]["action"])
 
     def test_missing_required_remote_receipt_directs_readback_before_promotion(self):
-        fixture = remote_fixtures.RemotePolicyIntegrationTests(); fixture.setUp(); self.addCleanup(fixture.doCleanups)
+        fixture = self.remote_fixture()
         values, _, _, receipt_path, _, _ = fixture.imported()
         receipt_path.unlink()
         report = status.inspect_release(values[2])

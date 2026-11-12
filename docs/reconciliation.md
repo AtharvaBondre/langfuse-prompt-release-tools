@@ -4,7 +4,7 @@
 
 ```bash
 langfuse-release-reconcile \
-  --host https://cloud.langfuse.com \
+  --host "$LANGFUSE_HOST" --project-id "$LANGFUSE_PROJECT_ID" \
   --manifest review/prompt-index.json \
   --release-report review/reports/stage-interrupted.json
 ```
@@ -60,3 +60,5 @@ This is read-only operational evidence. It does not authenticate unsigned input 
 Run `python -m unittest -v test_reconciliation`. Tests use synthetic in-memory HTTP and block real network access. They cover committed POST/PATCH responses lost in transport, partial batches, unknown identical candidates, newer unrelated versions, concurrent label movement, bounded/inconsistent listings, changed local evidence, missing/corrupt receipts, post-commit disk failure, output-storage failure, private output, CLI status and transport rejection of all mutations.
 
 These tests do not establish compatibility with a live tenant or server permissions.
+
+The saved report also contains a read-only `resume_proposal`. It retains completed results and marks uncertain/conflicting outcomes for inspection; it does not execute or authorize retries. See [local recovery](local-recovery.md) and [0.8 migration](migration-v08.md).

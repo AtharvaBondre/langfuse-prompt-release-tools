@@ -13,7 +13,8 @@ MODULES = ("test_prompt_release", "test_staged_release", "test_evaluation_gate",
            "test_experiment_policy", "test_reconciliation", "test_release_dependencies",
            "test_release_adoption", "test_release_integration", "test_release_bundle", "test_release_provenance",
            "test_release_remote", "test_release_rollout", "test_release_capture", "test_remote_policy_integration", "test_sdk_result_fixtures",
-           "test_policy_draft", "test_release_status")
+           "test_policy_draft", "test_release_status", "test_release_operations", "test_project_binding",
+           "test_release_trust", "test_release_results", "test_hosted_dataset_demo")
 COMMANDS = ("pull", "publish", "verify", "evaluate", "promote", "policy",
             "import-experiment", "reconcile", "dependencies", "adoption", "bundle", "provenance", "remote", "rollout", "capture",
             "policy-draft", "status")
@@ -33,8 +34,11 @@ def main():
         for module in MODULES:
             shutil.copyfile(ROOT / (module + ".py"), destination / (module + ".py"))
         shutil.copytree(ROOT / "tests/fixtures", destination / "tests/fixtures")
+        (destination / "tools").mkdir()
+        for name in ("check_ci_evidence.py", "make_ci_evidence.py"):
+            shutil.copyfile(ROOT / "tools" / name, destination / "tools" / name)
         (destination / "examples").mkdir()
-        for name in ("__init__.py", "sdk_experiment.py"):
+        for name in ("__init__.py", "sdk_experiment.py", "hosted_dataset_demo.py"):
             shutil.copyfile(ROOT / "examples" / name, destination / "examples" / name)
         shutil.copytree(ROOT / "examples/policy-inputs", destination / "examples/policy-inputs")
         probe = subprocess.run(

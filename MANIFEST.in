@@ -38,3 +38,5 @@ include tests/fixtures/sdk-results/LICENSE.experiment-action
 include test_live_ci_orchestration.py .gitattributes
 include js/LICENSE
 include test_policy_draft.py test_release_status.py
+
+include test_release_operations.py test_project_binding.py test_release_trust.py test_release_results.py test_hosted_dataset_demo.py

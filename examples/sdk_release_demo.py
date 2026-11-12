@@ -48,14 +48,14 @@ class ObservedClient(Client):
         return response
 
 
-def run(host, destination):
+def run(host, project_id, destination):
     from langfuse import Langfuse
     parsed = urlsplit(host)
     if parsed.scheme != "http" or parsed.hostname not in ("127.0.0.1", "localhost", "::1"):
         raise ReleaseError("Use a disposable loopback-only Langfuse instance.")
     destination = Path(destination).absolute()
     destination.mkdir(mode=0o700, exist_ok=False)
-    client, sdk = ObservedClient(host), Langfuse(base_url=host)
+    client, sdk = ObservedClient(host, project_id=project_id), Langfuse(base_url=host)
     cached_sdk = Langfuse(base_url=host)
     checks = []
 
@@ -104,7 +104,7 @@ def run(host, destination):
         before = client.patches
         try:
             promote(client, bad_manifest, bad_stage, label="production", apply=True,
-                    evaluation_report=bad_receipt, dependency_lock=bad_lock_path, report_name="blocked.json")
+                    evaluation_report=bad_receipt, dependency_lock=bad_lock_path, report_name="blocked.json", allow_unsigned_local=True)
         except ReleaseError:
             pass
         else:
@@ -127,7 +127,7 @@ def run(host, destination):
         before = client.patches
         try:
             promote(client, manifest, stage, label="production", apply=True,
-                    evaluation_report=receipt, dependency_lock=lock_path, report_name="drift-blocked.json")
+                    evaluation_report=receipt, dependency_lock=lock_path, report_name="drift-blocked.json", allow_unsigned_local=True)
         except ReleaseError as exc:
             check("drift refusal identifies dependency closure", "Dependency" in str(exc))
         else:
@@ -140,7 +140,7 @@ def run(host, destination):
         client.lose_patch = True
         try:
             promote(client, manifest, stage, label="production", apply=True,
-                    evaluation_report=receipt, dependency_lock=lock_path, report_name="lost-response.json")
+                    evaluation_report=receipt, dependency_lock=lock_path, report_name="lost-response.json", allow_unsigned_local=True)
         except ReleaseError:
             pass
         else:
@@ -154,7 +154,7 @@ def run(host, destination):
         check("committed PATCH currently reconciles completed", all(
             row.get("classification") == "completed" for row in recovered["results"]))
         promoted = promote(client, manifest, stage, label="production", apply=True,
-                           evaluation_report=receipt, dependency_lock=lock_path, report_name="verified.json")
+                           evaluation_report=receipt, dependency_lock=lock_path, report_name="verified.json", allow_unsigned_local=True)
         check("verified retry recognized already promoted without PATCH", client.patches == before)
 
         consumers = {"demo-app": "local-source-v05"}
@@ -186,10 +186,11 @@ def run(host, destination):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", required=True)
+    parser.add_argument("--project-id", required=True)
     parser.add_argument("--out-dir", required=True, help="New private evidence directory")
     parser.add_argument("--disposable-local", required=True, action="store_true")
     args = parser.parse_args()
-    summary = run(args.host, args.out_dir)
+    summary = run(args.host, args.project_id, args.out_dir)
     print(json.dumps(summary, indent=2))
 
 

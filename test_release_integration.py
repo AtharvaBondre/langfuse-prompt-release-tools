@@ -20,7 +20,7 @@ class IntegratedReleaseTests(unittest.TestCase):
         options = dict(label="production", apply=True, evaluation_report=values[-1],
                        dependency_lock=values[9], report_name="integration.json")
         options.update(overrides)
-        return promotion.promote(values[0], values[2], values[3], **options)
+        return promotion.promote(values[0], values[2], values[3], **options, allow_unsigned_local=True)
 
     def test_completed_promotion_binds_evaluated_lock_and_completion_time(self):
         values = self.fixture.imported()

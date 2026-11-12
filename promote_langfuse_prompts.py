@@ -23,7 +23,7 @@ def _positive_int(value):
 
 
 def _load_stage(snapshot, stage_path, label):
-    stage = json.loads(stage_path.read_text(encoding="utf-8"))
+    stage = strict_json_loads(stage_path.read_text(encoding="utf-8"))
     if (not isinstance(stage, dict) or stage.get("format_version") != 2 or
             stage.get("mode") != "stage" or stage.get("status") != "verified"):
         raise ReleaseError("Promotion requires a completed format_version=2 stage report.")
@@ -92,9 +92,26 @@ def _inspect(client, plan, label):
     return "pending_promotion"
 
 
+from langfuse_release_operations import locked_snapshot
+from langfuse_release_common import ensure_project, selected_project, strict_json_loads
+
+
+@locked_snapshot
 def promote(client, manifest_path, stage_report_path, *, label, apply=False, report_name=None,
             evaluation_report=None, require_evaluation=True, allow_structural_only=False,
-            dependency_lock=None):
+            dependency_lock=None, project_id=None, allow_unsigned_local=False, trusted_evidence=None):
+    from langfuse_release_trust import PromotionEvidence, validate_trust_mode
+    validate_trust_mode(require_trusted_ci=not allow_unsigned_local,
+                        allow_unsigned_local=allow_unsigned_local)
+    if trusted_evidence is None and not allow_unsigned_local:
+        raise ReleaseError("Promotion requires freshly verified trusted CI evidence; local compatibility requires explicit allow_unsigned_local=True.")
+    if trusted_evidence is not None:
+        if not isinstance(trusted_evidence, PromotionEvidence):
+            raise ReleaseError("Trusted promotion requires an active verified evidence context.")
+        trusted_evidence.authorize_attempt(require_trusted_ci=not allow_unsigned_local,
+                                           allow_unsigned_local=allow_unsigned_local)
+        trusted_evidence.assert_paths(manifest_path, stage_report_path, evaluation_report, dependency_lock)
+        trusted_evidence.check_integrity()
     for field, value in (("apply", apply), ("require_evaluation", require_evaluation),
                          ("allow_structural_only", allow_structural_only)):
         if type(value) is not bool:
@@ -116,6 +133,11 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
         raise ReleaseError("Policy-pinned promotion requires the dependency lock captured before its experiment.")
     if snapshot.get("host") != client.host:
         raise ReleaseError("Snapshot host does not match the requested target.")
+    project_id = selected_project(client, project_id, snapshot=snapshot)
+    if trusted_evidence is not None:
+        destination = trusted_evidence.report["destination"]
+        if destination != {"host": client.host, "project_id": project_id, "label": label}:
+            raise ReleaseError("Verified bundle destination does not match this promotion.")
     stage_path = Path(stage_report_path)
     if stage_path.is_symlink():
         raise ReleaseError("Stage report must not be a symlink.")
@@ -143,7 +165,8 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
     if report_path in (manifest_path, stage_path, evaluation_path, dependency_path) or any(
             report_path == inside(root, entry["file"]) for entry in snapshot["prompts"]):
         raise ReleaseError("Promotion report would overwrite its source data.")
-    report = {"format_version": 2, "host": client.host, "mode": "promote", "apply": apply,
+    report = {"format_version": 2, "host": client.host, "project_id": project_id,
+              "trust": trusted_evidence.report if trusted_evidence is not None else {"status": "unsigned_local", "explicit_opt_out": True}, "mode": "promote", "apply": apply,
               "status": "preflight", "label": label, "report_file": report_name,
               "snapshot_sha256": fingerprint(snapshot),
               "stage_report": {"file": str(stage_path), "sha256": fingerprint(stage)},
@@ -163,17 +186,21 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
 
     def check_evaluation():
         nonlocal evidence_binding, evaluated_dependency
+        if trusted_evidence is not None:
+            trusted_evidence.check_integrity()
         if evaluation_path is None:
             return
         # Re-read local evidence before each PATCH; no commands from reports run.
         if evaluation_path.is_symlink() or stage_path.is_symlink():
             raise ReleaseError("Evaluation or stage report changed to a symlink.")
         _, current_snapshot = load_snapshot(manifest_path)
-        current_stage = json.loads(stage_path.read_text(encoding="utf-8"))
+        current_stage = strict_json_loads(stage_path.read_text(encoding="utf-8"))
         if (fingerprint(current_snapshot) != fingerprint(snapshot) or
                 fingerprint(current_stage) != fingerprint(stage)):
             raise ReleaseError("Stage report or snapshot changed during promotion.")
-        evidence = validate_evaluation(evaluation_path, current_snapshot, current_stage)
+        evidence = (trusted_evidence.validate_evaluation(current_snapshot, current_stage)
+                    if trusted_evidence is not None else
+                    validate_evaluation(evaluation_path, current_snapshot, current_stage))
         current_binding = fingerprint(evidence)
         if evidence_binding is not None and current_binding != evidence_binding:
             raise ReleaseError("Evaluation evidence changed after promotion preflight.")
@@ -192,7 +219,7 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
             _, current_snapshot = load_snapshot(manifest_path)
             if stage_path.is_symlink() or dependency_path.is_symlink():
                 raise ReleaseError("Stage or dependency evidence changed to a symlink.")
-            current_stage = json.loads(stage_path.read_text(encoding="utf-8"))
+            current_stage = strict_json_loads(stage_path.read_text(encoding="utf-8"))
             if fingerprint(current_snapshot) != fingerprint(snapshot) or fingerprint(current_stage) != fingerprint(stage):
                 raise ReleaseError("Stage or snapshot changed during dependency verification.")
             lock = validate_dependency_lock(client, dependency_path, current_snapshot, current_stage)
@@ -211,6 +238,7 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
     phase, active = "evaluation" if evaluation_path is not None else "preflight", None
     try:
         check_evaluation()
+        ensure_project(client, project_id, snapshot=snapshot)
         phase = "dependencies"
         check_dependencies()
         phase = "preflight"
@@ -239,6 +267,9 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
             check_evaluation()
             phase = "dependencies"
             check_dependencies()
+            ensure_project(client, project_id, snapshot=snapshot)
+            if trusted_evidence is not None:
+                trusted_evidence.check_integrity()
             phase = "patch"
             result["status"] = "submitting"
             write_report(report_path, report)
@@ -261,6 +292,9 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
         check_evaluation()
         phase = "final_verification"
         check_dependencies()
+        ensure_project(client, project_id, snapshot=snapshot)
+        if trusted_evidence is not None:
+            trusted_evidence.check_integrity()
         report["status"] = "verified"
         report["completed_at_utc"] = datetime.now(timezone.utc).isoformat()
         write_report(report_path, report)
@@ -287,8 +321,18 @@ def promote(client, manifest_path, stage_report_path, *, label, apply=False, rep
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", required=True)
-    parser.add_argument("--manifest", required=True)
-    parser.add_argument("--stage-report", required=True)
+    parser.add_argument("--project-id", required=True)
+    parser.add_argument("--manifest")
+    parser.add_argument("--stage-report")
+    parser.add_argument("--bundle", help="Original CI bundle; verified again for this promotion.")
+    parser.add_argument("--release-id", help="Independently selected expected release identity.")
+    parser.add_argument("--materialize-dir", help="New private directory for verified bundle bytes and reports.")
+    parser.add_argument("--trust-policy", help="External signer policy, never taken from the bundle.")
+    parser.add_argument("--attestation")
+    parser.add_argument("--trusted-root")
+    trust = parser.add_mutually_exclusive_group()
+    trust.add_argument("--require-trusted-ci", action="store_true", help="Require trusted CI evidence (default).")
+    trust.add_argument("--allow-unsigned-local", action="store_true", help="Explicit local compatibility; does not authenticate the author.")
     parser.add_argument("--label", required=True)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--evaluation-report", help="Recorded application checks; validated whenever supplied.")
@@ -300,14 +344,41 @@ def main():
     parser.add_argument("--timeout", type=int, default=30)
     args = parser.parse_args()
     try:
-        report = promote(Client(args.host, args.timeout), args.manifest, args.stage_report,
-                         label=args.label, apply=args.apply, report_name=args.report,
-                         evaluation_report=args.evaluation_report,
-                         dependency_lock=args.dependency_lock,
-                         require_evaluation=not args.allow_structural_only,
-                         allow_structural_only=args.allow_structural_only)
+        client = Client(args.host, args.timeout, project_id=args.project_id)
+        options = dict(label=args.label, apply=args.apply, report_name=args.report,
+                       require_evaluation=not args.allow_structural_only,
+                       allow_structural_only=args.allow_structural_only,
+                       allow_unsigned_local=args.allow_unsigned_local)
+        if args.bundle:
+            if not args.materialize_dir or not args.release_id:
+                raise ReleaseError("Bundle promotion requires --materialize-dir and independently selected --release-id.")
+            if any((args.manifest, args.stage_report, args.evaluation_report, args.dependency_lock)):
+                raise ReleaseError("Bundle promotion uses its verified artifacts; do not mix local artifact paths.")
+            from langfuse_release_trust import trusted_promotion
+            with trusted_promotion(args.bundle, expected_host=client.host,
+                                   expected_project_id=args.project_id, expected_label=args.label,
+                                   expected_release_id=args.release_id,
+                                   trust_policy_path=args.trust_policy, attestation_path=args.attestation,
+                                   trusted_root_path=args.trusted_root,
+                                   require_trusted_ci=not args.allow_unsigned_local,
+                                   allow_unsigned_local=args.allow_unsigned_local,
+                                   materialize_dir=args.materialize_dir) as evidence:
+                manifest = evidence.manifest_path
+                report = promote(client, manifest, evidence.stage_report_path,
+                                 evaluation_report=evidence.evaluation_report_path,
+                                 dependency_lock=evidence.dependency_lock_path,
+                                 trusted_evidence=evidence, **options)
+        else:
+            if any((args.trust_policy, args.attestation, args.trusted_root, args.release_id, args.materialize_dir)):
+                raise ReleaseError("Trust inputs require --bundle; they cannot be silently ignored.")
+            if not args.manifest or not args.stage_report:
+                raise ReleaseError("Local promotion requires --manifest and --stage-report.")
+            manifest = Path(args.manifest)
+            report = promote(client, manifest, args.stage_report,
+                             evaluation_report=args.evaluation_report,
+                             dependency_lock=args.dependency_lock, **options)
         print(f"Promotion status: {report['status']}")
-        print(f"Report: {Path(args.manifest).resolve().parent / 'reports' / report['report_file']}")
+        print(f"Report: {manifest.resolve().parent / 'reports' / report['report_file']}")
     except (ReleaseError, OSError, ValueError) as exc:
         parser.exit(1, f"Promotion stopped: {exc}\n")
 

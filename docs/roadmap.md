@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-Updated **12 November 2026** for the policy setup and release inspection work in 0.7. See [validation](validation.md) for dated evidence and [migration](migration-v07.md) for adoption.
+Updated **12 November 2026** for the 0.8 reliability and integration work. See [validation](validation.md) for dated evidence and [migration](migration-v08.md) for adoption.
 
 ## Added in 0.7.0a1
 
@@ -26,40 +26,23 @@ This adds release evidence and checks around official Langfuse services. It does
 
 The maintainer explicitly deferred the real-application pilot on 11 November 2026 because no application/test environment is available yet. The current integration proof uses synthetic applications and does not include feedback from an existing deployed consumer. Select the application/repository and test environment, instrument its actual accesses, measure overhead and choose rollout thresholds from that evidence. No customer or production deployment was performed as part of this personal repository release.
 
-## Next implementation order
+## Implemented for 0.8, undergoing release validation
 
-The [product review](product-improvements.md) explains the user benefit and acceptance criteria for this order. Policy setup and the local status view from that review are implemented above. The remaining items below need separate implementation and validation.
+| Work item | Delivered behavior | Guide |
+|---|---|---|
+| Independent project identity | Format 2 exports bind the selected project; current keys are checked before remote release operations, including preview. Legacy snapshots need a fresh export. | [Migration](migration-v08.md) |
+| Trusted promotion | Original bytes and external CI signer expectations are verified at each promotion attempt. Private materialization preserves evidence; fresh evaluation/dependency/project checks still apply. | [Trusted promotion](trusted-promotion.md) |
+| Local concurrency and recovery | OS operation locks, durable atomic journals, subprocess crash tests and read-only resume proposals. Unknown writes are not retried. | [Recovery](local-recovery.md) |
+| Easier capture integration | Supported Python/JS result projections, application recipe, opt-in persistent JS collector with bounded queues and explicit acknowledgment/shutdown/loss receipts. | [Capture integration](capture-integration.md) |
+| Hosted dataset compatibility | Real hosted dataset versions/schemas, typed case/run scores, paging and negative controls in the disposable matrix. | [Hosted validation](hosted-dataset-validation.md) |
 
-These are **new, unimplemented work items**, beyond the shipped capabilities. The pilot above is explicitly deferred, not counted as completed.
+The [validation record](validation.md) distinguishes completed checks from checks still running. The deferred application pilot above is not counted as finished.
 
-### 1. Bind project identity before mutations
+## Next decisions after this release
 
-Add the independently selected project ID to the export and validate the project associated with the current key before staging or promotion. The remote verifier already checks it; the earlier mutation path currently binds the host and prompt baseline. Define explicit compatibility for older snapshots.
+1. **Use adopter feedback to fix the first integration obstacles.** Collect a redacted report and a minimal reproduction for confusing setup, incomplete capture or SDK incompatibility. Turn observed problems into focused tests before expanding features.
+2. **Run the deferred application pilot when an app exists.** Measure the persistent collector's CPU/latency/memory overhead, choose coverage thresholds from actual traffic and compare results with direct SDK access.
+3. **Review the next official SDK/server pair.** Pin official artifacts and run this same acceptance matrix before claiming compatibility. A dependency bump alone is not evidence.
+4. **Prepare a small upstream proposal if the workflow earns adoption.** Use a reproducible failure and measured benefit. An MCP wrapper or broader framework integrations should answer a concrete consumer need first.
 
-Acceptance: a same-host wrong-project key produces zero writes even when prompt baselines match; preview and apply enforce the same identity; credentials stay out of reports.
-
-### 2. Enforce signer policy at the promotion boundary
-
-Connect the verified bundle/provenance path to a reviewed promotion policy. Materialize validated evidence in an immutable release workspace without the producer's original paths. Keep host/project/label and signer policy independently selected.
-
-Acceptance: unsigned or wrong-signer bundles cannot satisfy a signer-required release; historical evidence cannot bypass fresh dependency/remote checks; dry-run and apply enforce identical policy; inspection never executes bundled code. Preserve explicit unsigned-local compatibility.
-
-### 3. Harden concurrent and interrupted local operations
-
-Add a release-folder operation lock and crash-injection tests around durable journal writes. Build explicit resume proposals from reconciliation, with fresh preflight before an authorized mutation.
-
-Acceptance: two local writers cannot corrupt one folder; process death retains enough evidence to classify the attempt; uncertain creation is never automatically retried. A local lock is not distributed exclusion or a server transaction. Automatic rollback remains outside this plan.
-
-### 4. Reduce capture integration work
-
-Move the Python/JavaScript result projections from examples into supported helpers. Add a small application recipe. Prototype an optional persistent collector for JavaScript, which starts Python synchronously per capture today; retain the common validator and original access times.
-
-Acceptance: helpers preserve real result identities and typed scores; packaged examples use those helpers; queues/memory are bounded; backpressure, dropped samples, acknowledgments and shutdown outcomes remain visible. Measure overhead in the deferred application pilot before recommending request-path use. Missing or delayed samples reduce coverage rather than disappear.
-
-### 5. Expand hosted-dataset and upgrade compatibility tests
-
-The verifier implements hosted dataset identity/version checks, while the current live matrix uses local synthetic datasets. Add a disposable hosted-dataset scenario, schema/version changes and run-level scores. Extend the matrix one reviewed SDK/server pair at a time.
-
-Acceptance: changed dataset version/schema or wrong run cannot pass; required scores are read across pagination; sampling/export loss stays incomplete; upgrade proposals include recorded official artifacts and exact image/SDK versions. Do not infer support for untested intermediate versions.
-
-An upstream contribution should start with a small reproduction and current maintainer rules. This roadmap does not authorize outreach or customer deployment. A release-specific MCP wrapper remains conditional on a consumer need the existing commands cannot meet.
+These are follow-up decisions, not unimplemented parts of the five-item 0.8 scope. Outreach, customer deployment and new platform support require their own concrete target.

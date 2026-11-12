@@ -69,7 +69,7 @@ def _read_source(path):
         raise ReleaseError("Release report must not be a symlink or use a symlink directory.")
     raw = path.read_bytes()
     try:
-        data = json.loads(raw)
+        data = strict_json_loads(raw)
         fingerprint(data)
     except (ValueError, UnicodeError, RecursionError):
         raise ReleaseError("Release report is not valid finite JSON.") from None
@@ -286,7 +286,12 @@ def _unknown_create(client, plan, max_versions):
                        "another caller may have created it. Absence of a candidate does not prove the write failed. Do not retry this POST automatically."), observations
 
 
-def reconcile(client, manifest_path, release_report_path, *, report_name=None, max_versions=100):
+from langfuse_release_operations import locked_snapshot, resume_proposal
+from langfuse_release_common import ensure_project, selected_project, strict_json_loads
+
+
+@locked_snapshot
+def reconcile(client, manifest_path, release_report_path, *, report_name=None, max_versions=100, project_id=None):
     """Write separate observations; never submit/resume/roll back a release.
 
     Client-like objects must implement get(name, version=.../label=...) and
@@ -298,6 +303,9 @@ def reconcile(client, manifest_path, release_report_path, *, report_name=None, m
     source_path, source, source_sha = _read_source(release_report_path)
     if snapshot.get("host") != client.host:
         raise ReleaseError("Snapshot host does not match the requested target.")
+    project_id = selected_project(client, project_id, snapshot=snapshot)
+    if not isinstance(source, dict) or source.get("project_id") != project_id:
+        raise ReleaseError("Release report project ID does not match the snapshot project.")
     plans = _plans(snapshot, source)
     if report_name is None:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -308,7 +316,7 @@ def reconcile(client, manifest_path, release_report_path, *, report_name=None, m
     if report_path.suffix.lower() != ".json" or report_path in protected:
         raise ReleaseError("Choose a new .json reconciliation report within the reports directory.")
     report = {"format_version": 1, "mode": "reconcile", "read_only": True,
-              "host": client.host, "status": "inspecting", "report_file": report_name,
+              "host": client.host, "project_id": project_id, "status": "inspecting", "report_file": report_name,
               "started_at": datetime.now(timezone.utc).isoformat(),
               "snapshot_sha256": fingerprint(snapshot),
               "release_report": {"file": str(source_path), "sha256": source_sha,
@@ -318,6 +326,7 @@ def reconcile(client, manifest_path, release_report_path, *, report_name=None, m
                          "No automatic resume, retry, rollback or application-adoption claim.",
                          "Unsigned local reports are evidence bindings, not authenticated attestations."]}
     write_report(report_path, report, create=True)
+    ensure_project(client, project_id, snapshot=snapshot)
     for plan in plans:
         result = {"name": plan["name"], "classification": "unknown"}
         if plan.get("unrecorded"):
@@ -348,11 +357,13 @@ def reconcile(client, manifest_path, release_report_path, *, report_name=None, m
         for result in report["results"]:
             result["classification"] = "unknown"
             result["reason"] = "Local source evidence changed or became unavailable during inspection; use a preserved matching snapshot and report."
+    ensure_project(client, project_id, snapshot=snapshot)
     report["source_evidence_unchanged"] = unchanged
     report["counts"] = {key: sum(row["classification"] == key for row in report["results"])
                         for key in ("completed", "pending", "conflicting", "unknown")}
     report["status"] = "completed" if report["counts"]["completed"] == len(report["results"]) else "needs_review"
     report["finished_at"] = datetime.now(timezone.utc).isoformat()
+    report["resume_proposal"] = resume_proposal(report)
     write_report(report_path, report)
     return report
 
@@ -360,6 +371,7 @@ def reconcile(client, manifest_path, release_report_path, *, report_name=None, m
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", required=True)
+    parser.add_argument("--project-id", required=True)
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--release-report", required=True)
     parser.add_argument("--report", help="New private report filename within the snapshot reports directory.")
@@ -368,7 +380,7 @@ def main():
     parser.add_argument("--timeout", type=int, default=30)
     args = parser.parse_args()
     try:
-        result = reconcile(ReadOnlyClient(args.host, args.timeout), args.manifest,
+        result = reconcile(ReadOnlyClient(args.host, args.timeout, project_id=args.project_id), args.manifest,
                            args.release_report, report_name=args.report, max_versions=args.max_versions)
         print("Reconciliation: " + ", ".join(f"{count} {name}" for name, count in result["counts"].items()))
         print(f"Report: {Path(args.manifest).resolve().parent / 'reports' / result['report_file']}")

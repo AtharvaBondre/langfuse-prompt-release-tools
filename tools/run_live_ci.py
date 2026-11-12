@@ -226,9 +226,10 @@ def run(version, private, public):
         demo_env = {**env, "LANGFUSE_PUBLIC_KEY": values["LANGFUSE_PUBLIC_KEY"],
                     "LANGFUSE_SECRET_KEY": values["LANGFUSE_SECRET_KEY"], "LANGFUSE_BASE_URL": HOST,
                     "LANGFUSE_HOST": HOST, "LANGFUSE_TRACING_ENABLED": "true"}
-        demos = [("verified_release_demo", ["--project-id", values["LANGFUSE_INIT_PROJECT_ID"]])]
+        demos = [(name, ["--project-id", values["LANGFUSE_INIT_PROJECT_ID"]])
+                 for name in ("verified_release_demo", "hosted_dataset_demo")]
         if version == "4.78.0":
-            demos.append(("sdk_release_demo", []))
+            demos.append(("sdk_release_demo", ["--project-id", values["LANGFUSE_INIT_PROJECT_ID"]]))
         for name, extra in demos:
             destination = private / name
             execute(name, [sys.executable, str(ROOT / "examples" / (name + ".py")), "--host", HOST,

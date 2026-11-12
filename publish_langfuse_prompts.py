@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from langfuse_release_common import (Client, ReleaseError, inside, validate_prompt,
-                                     contract_signature, fingerprint, make_payload, verify_exact)
+                                     contract_signature, fingerprint, make_payload, verify_exact, ensure_project, selected_project, validate_project_id, strict_json_loads)
 
 
 def load_snapshot(manifest_path):
@@ -17,9 +17,11 @@ def load_snapshot(manifest_path):
     if source.is_symlink() or source.parent.is_symlink():
         raise ReleaseError("Snapshot file and directory must not be symlinks.")
     path = Path(manifest_path).resolve()
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or data.get("format_version") != 1:
-        raise ReleaseError("Expected a format_version=1 snapshot from the bundled exporter.")
+    data = strict_json_loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or type(data.get("format_version")) is not int or data.get("format_version") not in (1, 2):
+        raise ReleaseError("Expected a format_version=1 or 2 snapshot from the bundled exporter.")
+    if data["format_version"] == 2:
+        validate_project_id(data.get("project_id"))
     selector = data.get("selector")
     if not isinstance(selector, dict) or (selector.get("label") is None) == (selector.get("version") is None):
         raise ReleaseError("Snapshot must record exactly one label or version selector.")
@@ -41,7 +43,7 @@ def load_snapshot(manifest_path):
         if baseline["type"] == "text":
             content = local_path.read_text(encoding="utf-8")
         else:
-            content = json.loads(local_path.read_text(encoding="utf-8"))
+            content = strict_json_loads(local_path.read_text(encoding="utf-8"))
         validate_prompt({**baseline, "prompt": content}, expected_name=name)
         entry["local_content"] = content
     return path, data
@@ -68,32 +70,18 @@ def preview_diff(before, after):
                    for line in diff)
 
 
-def write_report(path, report, *, create=False):
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if create:
-        # Reserve new evidence exclusively; a later preview must not erase a release.
-        try:
-            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-                json.dump(report, handle, ensure_ascii=False, indent=2)
-                handle.write("\n")
-        except FileExistsError:
-            raise ReleaseError("Report already exists; choose a new --report filename.") from None
-        return
-    fd, temp_name = tempfile.mkstemp(prefix=".release-", suffix=".json", dir=path.parent)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(report, handle, ensure_ascii=False, indent=2)
-            handle.write("\n")
-        os.replace(temp_name, path)
-    finally:
-        if os.path.exists(temp_name):
-            os.unlink(temp_name)
+from langfuse_release_operations import durable_json, locked_snapshot
 
+
+def write_report(path, report, *, create=False):
+    durable_json(path, report, create=create)
+
+
+@locked_snapshot
 
 def release(client, manifest_path, *, apply=False, names=None, canary=None,
             allow_contract_change=False, commit_message="Reviewed prompt update",
-            report_name=None, stage=True, allow_direct_release=False):
+            report_name=None, stage=True, allow_direct_release=False, project_id=None):
     for field, value in (("apply", apply), ("stage", stage),
                          ("allow_direct_release", allow_direct_release),
                          ("allow_contract_change", allow_contract_change)):
@@ -112,6 +100,7 @@ def release(client, manifest_path, *, apply=False, names=None, canary=None,
     root = manifest_path.parent
     if snapshot.get("host") != client.host:
         raise ReleaseError("Snapshot host does not match the requested target.")
+    project_id = selected_project(client, project_id, snapshot=snapshot)
     label = snapshot["selector"].get("label")
     if not isinstance(label, str) or not label:
         raise ReleaseError("Publishing requires a label-based snapshot; immutable-version exports are review-only.")
@@ -134,7 +123,7 @@ def release(client, manifest_path, *, apply=False, names=None, canary=None,
         raise ReleaseError("Report filename must end in .json.")
     if any(report_path == inside(root, entry["file"]) for entry in snapshot["prompts"]):
         raise ReleaseError("Report would overwrite prompt content.")
-    report = {"format_version": 2, "host": client.host,
+    report = {"format_version": 2, "host": client.host, "project_id": project_id,
               "mode": ("stage" if stage else "apply") if apply else "dry_run",
               "release_strategy": "stage" if stage else "direct",
               "allow_direct_release": allow_direct_release,
@@ -144,6 +133,7 @@ def release(client, manifest_path, *, apply=False, names=None, canary=None,
     write_report(report_path, report, create=True)
     phase, pending = "preflight", None
     try:
+        ensure_project(client, project_id, snapshot=snapshot)
         plans = []
         contract_approval_needed = False
         for entry in entries:
@@ -182,6 +172,10 @@ def release(client, manifest_path, *, apply=False, names=None, canary=None,
             phase = "recheck"
             # Best-effort optimistic check, not an atomic compare-and-swap.
             assert_unchanged(client.get(entry["name"], label=label), entry["baseline"])
+            _, fresh_snapshot = load_snapshot(manifest_path)
+            if fingerprint(fresh_snapshot) != fingerprint(snapshot):
+                raise ReleaseError("Local snapshot changed after preflight; review a new attempt.")
+            ensure_project(client, project_id, snapshot=snapshot)
             phase = "write"
             result["status"] = "submitting"
             write_report(report_path, report)
@@ -219,6 +213,7 @@ def release(client, manifest_path, *, apply=False, names=None, canary=None,
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", required=True)
+    parser.add_argument("--project-id", required=True)
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--name", action="append")
     parser.add_argument("--canary", help="Process this selected prompt first; each version is verified before continuing.")
@@ -232,7 +227,7 @@ def main():
     parser.add_argument("--timeout", type=int, default=30)
     args = parser.parse_args()
     try:
-        report = release(Client(args.host, args.timeout), args.manifest, apply=args.apply,
+        report = release(Client(args.host, args.timeout, project_id=args.project_id), args.manifest, apply=args.apply,
                          names=args.name, canary=args.canary, allow_contract_change=args.allow_contract_change,
                          commit_message=args.commit_message, report_name=args.report,
                          stage=not args.allow_direct_release, allow_direct_release=args.allow_direct_release)

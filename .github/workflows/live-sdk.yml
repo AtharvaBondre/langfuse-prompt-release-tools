@@ -22,7 +22,7 @@ jobs:
   live-sdk:
     name: Langfuse ${{ matrix.server }} / Linux AMD64 / Python 3.14 / Node 22
     runs-on: ubuntu-24.04
-    timeout-minutes: 18
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       max-parallel: 2

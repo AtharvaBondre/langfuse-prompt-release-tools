@@ -100,7 +100,7 @@ class ExperimentPolicyTests(unittest.TestCase):
         api, backend, manifest, stage_path = values[:4]
         backend.requests.clear()
         with self.assertRaises((common.ReleaseError, OSError, ValueError)):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, evaluation_report=report_path, dependency_lock=values[9])
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, evaluation_report=report_path, dependency_lock=values[9], allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_import_passes_exact_policy_targets_cases_and_scores(self):
@@ -112,7 +112,7 @@ class ExperimentPolicyTests(unittest.TestCase):
         self.assertEqual(2, len(report["cases"]))
         self.assertEqual(2, len(report["results"]))
         self.assertEqual(values[8]["sha256"], report["policy_sha256"])
-        result = promotion.promote(values[0], values[2], values[3], label="production", apply=True, evaluation_report=values[-1], dependency_lock=values[9])
+        result = promotion.promote(values[0], values[2], values[3], label="production", apply=True, evaluation_report=values[-1], dependency_lock=values[9], allow_unsigned_local=True)
         self.assertEqual("verified", result["status"])
         self.assertEqual(2, len(values[1].patches))
 
@@ -192,14 +192,14 @@ class ExperimentPolicyTests(unittest.TestCase):
         for options in ({"require_evaluation": False, "allow_structural_only": True},
                         {"require_evaluation": False, "allow_structural_only": True, "evaluation_report": values[4]}):
             with self.subTest(options=options), self.assertRaises(common.ReleaseError):
-                promotion.promote(values[0], values[2], values[3], label="production", apply=True, dependency_lock=values[9], **options)
+                promotion.promote(values[0], values[2], values[3], label="production", apply=True, dependency_lock=values[9], **options, allow_unsigned_local=True)
             self.assertEqual([], values[1].requests)
 
     def test_pinned_policy_blocks_promotion_without_its_dependency_lock(self):
         values = self.imported()
         with self.assertRaisesRegex(common.ReleaseError, "requires the dependency lock"):
             promotion.promote(values[0], values[2], values[3], label="production", apply=True,
-                              evaluation_report=values[-1])
+                              evaluation_report=values[-1], allow_unsigned_local=True)
         self.assertEqual([], values[1].requests)
 
     def test_pinned_policy_cannot_bypass_evaluation_with_direct_publication(self):
@@ -420,7 +420,7 @@ class ExperimentPolicyTests(unittest.TestCase):
             values[5].write_text(json.dumps(capture))
         values[1].on_patch = change_after_first
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(values[0], values[2], values[3], label="production", apply=True, evaluation_report=values[-1], dependency_lock=values[9])
+            promotion.promote(values[0], values[2], values[3], label="production", apply=True, evaluation_report=values[-1], dependency_lock=values[9], allow_unsigned_local=True)
         self.assertEqual(1, len(values[1].patches))
         self.assertIn("production", values[1].versions["first"][8]["labels"])
         self.assertIn("production", values[1].versions["second"][7]["labels"])

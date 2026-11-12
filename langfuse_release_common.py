@@ -261,8 +261,55 @@ def _normalize_host(host: str) -> str:
     return urllib.parse.urlunsplit((url.scheme, url.netloc, url.path.rstrip("/"), "", ""))
 
 
+def strict_json_loads(raw):
+    """Reject ambiguous keys and non-finite values before binding local evidence."""
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ReleaseError("Duplicate JSON key in release evidence.")
+            result[key] = value
+        return result
+    try:
+        value = json.loads(raw, object_pairs_hook=pairs)
+        fingerprint(value)
+        return value
+    except (ValueError, RecursionError, UnicodeError):
+        raise ReleaseError("Release evidence must be finite, valid JSON.") from None
+
+
+def validate_project_id(value):
+    if (not isinstance(value, str) or not value or len(value) > 256
+            or value != value.strip() or any(ord(c) < 33 or ord(c) == 127 for c in value)):
+        raise ReleaseError("Choose an explicit nonempty project ID from your target project settings.")
+    return value
+
+
+def selected_project(client, project_id=None, *, snapshot=None):
+    expected = validate_project_id(project_id if project_id is not None else
+                                   getattr(client, "expected_project_id", None))
+    if snapshot is not None:
+        if snapshot.get("format_version") != 2 or not snapshot.get("project_id"):
+            raise ReleaseError("Legacy snapshot has no project binding; re-export into a new directory before remote operations.")
+        if snapshot["project_id"] != expected:
+            raise ReleaseError("Snapshot project ID does not match the independently selected target project.")
+    return expected
+
+
+def ensure_project(client, project_id=None, *, snapshot=None):
+    expected = selected_project(client, project_id, snapshot=snapshot)
+    if not callable(getattr(client, "get_project_id", None)):
+        raise ReleaseError("Client must support independent project identity verification.")
+    if client.get_project_id() != expected:
+        raise ReleaseError("Credentials belong to a different Langfuse project; no release write was sent.")
+    if isinstance(client, Client):
+        client.expected_project_id = expected
+    return expected
+
+
 class Client:
-    def __init__(self, host: str, timeout: int = 30) -> None:
+    def __init__(self, host: str, timeout: int = 30, *, project_id: str | None = None) -> None:
+        self.expected_project_id = project_id
         self.host = _normalize_host(host)
         if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or not math.isfinite(timeout) or timeout <= 0:
             raise ReleaseError("Timeout must be a positive finite number.")
@@ -277,6 +324,8 @@ class Client:
 
     def _request(self, method: str, path: str, query: dict[str, Any] | None = None,
                  payload: dict[str, Any] | None = None) -> Any:
+        if method in {"POST", "PATCH"}:
+            ensure_project(self, self.expected_project_id)
         url = self.host + path
         if query:
             url += "?" + urllib.parse.urlencode(query)
@@ -305,6 +354,13 @@ class Client:
         except (ValueError, UnicodeError, RecursionError, ReleaseError):
             raise ReleaseError(f"Langfuse {method} returned invalid JSON; response body omitted.",
                                unknown_write=writing) from None
+
+    def get_project_id(self) -> str:
+        data = self._request("GET", "/api/public/projects")
+        if (not isinstance(data, dict) or not isinstance(data.get("data"), list)
+                or len(data["data"]) != 1 or not isinstance(data["data"][0], dict)):
+            raise ReleaseError("Credentials must resolve to exactly one Langfuse project.")
+        return validate_project_id(data["data"][0].get("id"))
 
     def get(self, name: str, label: str | None = None,
             version: int | None = None) -> dict[str, Any]:

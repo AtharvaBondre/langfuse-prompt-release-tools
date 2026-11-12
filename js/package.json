@@ -1,6 +1,6 @@
 {
   "name": "langfuse-release-capture",
-  "version": "0.7.0-alpha.1",
+  "version": "0.8.0-alpha.1",
   "private": true,
   "description": "Official Langfuse JavaScript SDK capture for the Python release evidence engine",
   "type": "module",

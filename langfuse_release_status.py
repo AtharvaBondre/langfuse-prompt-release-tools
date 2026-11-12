@@ -161,12 +161,21 @@ def inspect_release(manifest_path=None, *, workspace=None, stage_report=None, ev
     root = root_source.resolve()
     manifest = _bound(manifest_path if manifest_path is not None else "prompt-index.json", root)
     _, raw_snapshot = _read(manifest, root)  # strict JSON/duplicate-key checks before loader
-    if type(raw_snapshot.get("format_version")) is not int or raw_snapshot["format_version"] != 1:
-        raise ReleaseError("Snapshot requires format_version=1.")
+    if type(raw_snapshot.get("format_version")) is not int or raw_snapshot["format_version"] not in (1, 2):
+        raise ReleaseError("Snapshot requires format_version=1 or 2.")
     manifest, snapshot = load_snapshot(manifest)
     binding = snapshot_policy(snapshot)
     policy = binding["policy"] if binding else None
-    warnings, candidates = [], []
+    policy_project = policy.get("remote_verification", {}).get("project_id") if policy else None
+    project_mismatch = None
+    if snapshot["format_version"] == 2:
+        project_id, project_source = snapshot["project_id"], "snapshot_binding"
+        if policy_project is not None and policy_project != project_id:
+            project_mismatch = "Pinned remote policy project differs from the snapshot project binding."
+    else:
+        project_id = policy_project
+        project_source = "pinned_remote_verification_policy" if policy_project is not None else "not_recorded"
+    warnings, candidates = ([project_mismatch] if project_mismatch else []), []
     for directory in (root, root / "reports"):
         if not directory.exists():
             continue
@@ -197,8 +206,8 @@ def inspect_release(manifest_path=None, *, workspace=None, stage_report=None, ev
     result = {"format_version": 1, "mode": "release_status", "observed_at_utc": now.isoformat(),
               "scope": "local_saved_evidence_only", "remote_checked": False, "workspace": str(root),
               "manifest": str(manifest), "host": _host(snapshot.get("host")),
-              "project_id": policy.get("remote_verification", {}).get("project_id") if policy else None,
-              "project_identity_source": "pinned_remote_verification_policy" if policy and "remote_verification" in policy else "not_recorded",
+              "project_id": project_id,
+              "project_identity_source": project_source,
               "label": snapshot.get("selector", {}).get("label"), "snapshot_sha256": fingerprint(snapshot),
               "policy": {"state": "pinned" if policy else "missing", "id": policy.get("id") if policy else None,
                          "sha256": binding["sha256"] if binding else None},
@@ -332,6 +341,8 @@ def inspect_release(manifest_path=None, *, workspace=None, stage_report=None, ev
         if section["state"] != "stale":
             section["state"] = "recorded_confirmed"
     check("remote", remote_check)
+    if project_mismatch:
+        sections["remote"].update(state="invalid", validation="failed", messages=[project_mismatch])
 
     def promotion_check(section, value):
         if type(value.get("format_version")) is not int or value["format_version"] != 2:

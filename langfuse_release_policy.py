@@ -169,6 +169,10 @@ def snapshot_policy(snapshot, *, required=False):
     return copy.deepcopy(binding)
 
 
+from langfuse_release_operations import locked_manifest
+
+
+@locked_manifest
 def pin_policy(manifest_path, policy_path):
     """Bind once, before staging. Replacing a policy requires a fresh export."""
     manifest_path, raw = read_object(manifest_path, "snapshot")

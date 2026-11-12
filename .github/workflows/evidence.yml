@@ -2,7 +2,7 @@ name: Portable signed evidence
 
 on:
   push:
-    branches: [main, codex/release-portability-upgrade]
+    branches: [main, codex/release-portability-upgrade, codex/release-reliability-v08]
   workflow_dispatch:
 
 permissions:

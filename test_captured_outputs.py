@@ -45,7 +45,7 @@ class CapturedOutputsTests(unittest.TestCase):
         self.assertEqual("failed", receipt["status"])
         with self.assertRaises(common.ReleaseError):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              evaluation_report=manifest.parent / "reports" / receipt["report_file"])
+                              evaluation_report=manifest.parent / "reports" / receipt["report_file"], allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_passing_captured_output_allows_default_gate_and_retains_provenance(self):
@@ -59,7 +59,7 @@ class CapturedOutputsTests(unittest.TestCase):
         self.assertNotIn("output", results["results"][0])
         receipt = evaluation.record_evaluation(manifest, stage_path, output, required_checks=REQUIRED_CHECKS)
         result = promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                                   evaluation_report=manifest.parent / "reports" / receipt["report_file"])
+                                   evaluation_report=manifest.parent / "reports" / receipt["report_file"], allow_unsigned_local=True)
         self.assertEqual("verified", result["status"])
         self.assertEqual(1, len(backend.patches))
 

@@ -50,3 +50,7 @@ Report created versions, promoted labels, failed checks, reconciliation classifi
 ## Read local release status
 
 Use `langfuse-release-status --workspace RELEASE_DIRECTORY` for a human-readable inspection or `--format json` for structured output. It sends no remote requests and writes no files. Keep recorded outcomes, reconstructed local checks, freshness and unknown server state distinct. Resolve ambiguous evidence with explicit report paths; do not treat a successful promotion record as application adoption or authorization to write. See `docs/release-status.md`.
+
+## 0.8 release boundary
+
+Select the destination project independently and pass `--project-id` to pull, publish, promote and reconcile. Format 1 snapshots require a new export before remote operations. Promotion defaults to trusted CI: use the original signed bundle and external host/project/label/release ID/signer expectations. Only select `--allow-unsigned-local` for an explicitly chosen local workflow; it does not bypass evaluation or dependency checks. Read [migration](../../docs/migration-v08.md) and [trusted promotion](../../docs/trusted-promotion.md). Keep `.release.lock` in place and use read-only reconciliation after an uncertain write.

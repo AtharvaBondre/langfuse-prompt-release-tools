@@ -1,5 +1,6 @@
 """Offline tests for the allowlisted Python sidecar and JS observation contract."""
 import copy
+import io
 import json
 import os
 from pathlib import Path
@@ -184,6 +185,109 @@ class CaptureBridgeTests(unittest.TestCase):
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=20)
         self.assertNotEqual(0, result.returncode)
         self.assertNotIn(b"sentinel\n", result.stdout)
+
+
+class PersistentCollectorTests(unittest.TestCase):
+    def request(self, session, operation, arguments, *, request_id=None):
+        return json.loads(session.respond({"id": request_id or session.last_id + 1,
+                                           "submitted_at_utc": "2026-11-11T12:00:01+00:00",
+                                           "operation": operation, "arguments": arguments}))
+
+    def test_adoption_ack_keeps_original_access_timestamps(self):
+        session = capture.CollectorSession()
+        result = self.request(session, "adoption", {"prompt_snapshot": snapshot(), **metadata()})
+        self.assertTrue(result["ok"])
+        self.assertEqual("2026-11-11T12:00:01+00:00", result["submitted_at_utc"])
+        self.assertEqual(metadata()["observed_at_utc"], result["result"]["observed_at_utc"])
+        self.assertEqual(metadata()["request_started_at_utc"], result["result"]["request_started_at_utc"])
+        self.assertNotEqual(result["processed_at_utc"], result["result"]["observed_at_utc"])
+
+    def test_serial_capture_and_state_rejection_are_transactional(self):
+        session = capture.CollectorSession(); session.state = running_capture()
+        args = {"item_id": "case-1", "requested_name": "root", "requested_version": 2, "prompt": snapshot()}
+        result = self.request(session, "prompt", args)
+        self.assertTrue(result["ok"])
+        self.assertEqual(1, len(session.state["items"]))
+        before = copy.deepcopy(session.state)
+        rejected = self.request(session, "prompt", args)
+        self.assertFalse(rejected["ok"])
+        self.assertEqual(before, session.state)
+        with patch.object(capture, "finalize_capture") as finish:
+            self.assertFalse(self.request(session, "finish", {"result_path": "unused"})["ok"])
+            finish.assert_not_called()
+        barrier = self.request(session, "barrier", {})
+        self.assertFalse(barrier["result"]["complete"])
+        self.assertEqual(2, barrier["result"]["rejected"])
+
+    def test_response_bound_does_not_commit_oversized_state(self):
+        session = capture.CollectorSession(); session.state = running_capture()
+        before = copy.deepcopy(session.state)
+        args = {"item_id": "case-1", "requested_name": "root", "requested_version": 2, "prompt": snapshot()}
+        with patch.object(capture, "MAX_MESSAGE_BYTES", 350):
+            result = self.request(session, "prompt", args)
+        self.assertFalse(result["ok"])
+        self.assertEqual(before, session.state)
+
+    def test_protocol_rejects_replay_duplicate_keys_and_incomplete_frames(self):
+        session = capture.CollectorSession()
+        self.request(session, "hash", {"value": 1})
+        with self.assertRaisesRegex(ReleaseError, "ordered"):
+            self.request(session, "hash", {"value": 1}, request_id=1)
+        for raw in (b'{"id":1,"id":2}\n', b'{}', b'[]\n'):
+            with self.subTest(raw=raw), self.assertRaises(ReleaseError):
+                capture.serve(io.BytesIO(raw), io.BytesIO())
+
+    def test_stream_acknowledges_each_request_and_flushes(self):
+        requests = [{"id": number, "submitted_at_utc": "2026-11-11T12:00:01Z", "operation": "hash", "arguments": {"value": number}}
+                    for number in (1, 2)]
+        input_stream = io.BytesIO(b"".join(json.dumps(row).encode() + b"\n" for row in requests))
+        output_stream = io.BytesIO()
+        capture.serve(input_stream, output_stream)
+        results = [json.loads(row) for row in output_stream.getvalue().splitlines()]
+        self.assertEqual([1, 2], [row["id"] for row in results])
+        self.assertEqual([fingerprint(1), fingerprint(2)], [row["result"] for row in results])
+
+    def test_validation_errors_never_echo_private_values(self):
+        result = self.request(capture.CollectorSession(), "PRIVATE-PROMPT-CONTENT", {})
+        self.assertFalse(result["ok"])
+        self.assertNotIn("PRIVATE-PROMPT-CONTENT", json.dumps(result))
+
+    def test_missing_required_sample_cannot_be_finalized(self):
+        session = capture.CollectorSession(); session.state = running_capture()
+        with patch.object(capture, "finalize_capture") as finish:
+            result = self.request(session, "finish", {"result_path": "unused"})
+        self.assertFalse(result["ok"])
+        finish.assert_not_called()
+
+    def test_complete_session_round_trips_through_independent_importer(self):
+        from test_experiment_policy import ExperimentPolicyTests
+        from import_langfuse_experiment import import_experiment, _dataset_identity
+        fixture = ExperimentPolicyTests(methodName="test_import_passes_exact_policy_targets_cases_and_scores")
+        fixture.setUp()
+        try:
+            values = fixture.prepare()
+            api, _, manifest, stage_path, result_path, capture_path, _, _, binding, lock_path = values
+            policy = binding["policy"]
+            session = capture.CollectorSession()
+            started = self.request(session, "start", {"manifest_path": str(manifest), "stage_report_path": str(stage_path),
+                "dataset": _dataset_identity(policy), "execution": policy["execution"], "dependency_lock_path": str(lock_path)})
+            self.assertTrue(started["ok"])
+            for target in started["result"]["targets"]:
+                value = api.get(target["name"], version=target["version"])
+                prompt = {key: value[key] for key in ("name", "version", "type", "prompt", "config")}
+                prompt["is_fallback"] = False
+                for case in target["case_ids"]:
+                    observed = self.request(session, "prompt", {"item_id": case, "requested_name": target["name"],
+                        "requested_version": target["version"], "prompt": prompt})
+                    self.assertTrue(observed["ok"])
+            finished = self.request(session, "finish", {"result_path": str(result_path), "remote_export": "unconfirmed"})
+            self.assertTrue(finished["ok"])
+            capture_path.write_text(json.dumps(finished["result"]))
+            report = import_experiment(manifest, stage_path, result_path, capture_path, report_name="collector-import.json")
+            self.assertEqual("passed", report["status"])
+            self.assertEqual(0, session.rejected)
+        finally:
+            fixture.doCleanups()
 
 
 if __name__ == "__main__":

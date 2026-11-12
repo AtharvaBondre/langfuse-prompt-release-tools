@@ -60,7 +60,7 @@ class StagedReleaseTests(unittest.TestCase):
     report = fixtures.PromptReleaseTests.report
 
     def client(self, prompts=None):
-        api = common.Client("https://example.com", timeout=5)
+        api = common.Client("https://example.com", timeout=5, project_id="synthetic-project")
         backend = PromotionHTTP(prompts or [fixtures.prompt()])
         api._opener = backend
         return api, backend
@@ -101,7 +101,7 @@ class StagedReleaseTests(unittest.TestCase):
     def test_publish_cli_defaults_to_stage_and_rejects_conflicting_flags(self):
         api, backend = self.client()
         manifest = self.snapshot(api); self.edit(manifest)
-        argv = ["publish", "--host", api.host, "--manifest", str(manifest), "--apply", "--report", "cli.json"]
+        argv = ["publish", "--host", api.host, "--project-id", "synthetic-project", "--manifest", str(manifest), "--apply", "--report", "cli.json"]
         with patch.object(sys, "argv", argv), patch.object(publish, "Client", return_value=api), patch("sys.stdout", new=io.StringIO()):
             publish.main()
         self.assertEqual("stage", self.report(manifest, "cli.json")["mode"])
@@ -116,7 +116,7 @@ class StagedReleaseTests(unittest.TestCase):
     def test_publish_cli_explicit_direct_flag_moves_deployment_label(self):
         api, backend = self.client()
         manifest = self.snapshot(api); self.edit(manifest)
-        argv = ["publish", "--host", api.host, "--manifest", str(manifest), "--apply", "--allow-direct-release", "--report", "direct-cli.json"]
+        argv = ["publish", "--host", api.host, "--project-id", "synthetic-project", "--manifest", str(manifest), "--apply", "--allow-direct-release", "--report", "direct-cli.json"]
         with patch.object(sys, "argv", argv), patch.object(publish, "Client", return_value=api), patch("sys.stdout", new=io.StringIO()):
             publish.main()
         result = self.report(manifest, "direct-cli.json")
@@ -216,7 +216,7 @@ class StagedReleaseTests(unittest.TestCase):
     def test_promotion_preview_is_read_only(self):
         api, backend, manifest, stage_path = self.stage()
         backend.requests.clear()
-        result = promotion.promote(api, manifest, stage_path, label="production", require_evaluation=False, allow_structural_only=True)
+        result = promotion.promote(api, manifest, stage_path, label="production", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual([], backend.patches)
         self.assertEqual([], backend.posts)
         self.assertEqual(7, api.get("example", label="production")["version"])
@@ -225,7 +225,7 @@ class StagedReleaseTests(unittest.TestCase):
     def test_promotion_moves_only_requested_label_and_reads_exact_version(self):
         original = fixtures.prompt(); original["labels"] = ["production", "staging", "latest"]
         api, backend, manifest, stage_path = self.stage([original]); backend.requests.clear()
-        result = promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True)
+        result = promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual("verified", result["status"])
         self.assertEqual(1, len(backend.patches))
         self.assertEqual({"newLabels": ["production"]}, backend.patches[0]["body"])
@@ -239,9 +239,9 @@ class StagedReleaseTests(unittest.TestCase):
 
     def test_already_promoted_run_skips_patch(self):
         api, backend, manifest, stage_path = self.stage()
-        promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="first-promotion.json", require_evaluation=False, allow_structural_only=True)
+        promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="first-promotion.json", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         backend.requests.clear()
-        result = promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="second-promotion.json", require_evaluation=False, allow_structural_only=True)
+        result = promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="second-promotion.json", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual([], backend.patches)
         self.assertEqual("verified", result["status"])
         self.assertIn("already", result["results"][0]["status"])
@@ -250,14 +250,14 @@ class StagedReleaseTests(unittest.TestCase):
         api, backend, manifest, stage_path = self.stage(); backend.requests.clear()
         for label in ["latest", "unknown-label"]:
             with self.subTest(label=label), self.assertRaises(common.ReleaseError):
-                promotion.promote(api, manifest, stage_path, label=label, apply=True, require_evaluation=False, allow_structural_only=True)
+                promotion.promote(api, manifest, stage_path, label=label, apply=True, require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual([], backend.patches)
 
     def test_promotion_hash_mismatch_blocks_before_http(self):
         api, backend, manifest, stage_path = self.stage(); self.edit(manifest, content="Edited again {{question}}.")
         backend.requests.clear()
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_failed_second_target_preflight_prevents_all_patches(self):
@@ -265,7 +265,7 @@ class StagedReleaseTests(unittest.TestCase):
         backend.versions["second"][8]["config"] = "unexpected"
         backend.requests.clear()
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual([], backend.patches)
         self.assertEqual(7, api.get("first", label="production")["version"])
 
@@ -284,7 +284,7 @@ class StagedReleaseTests(unittest.TestCase):
                     else: target["labels"].append("unreviewed")
                     backend.requests.clear()
                     with self.assertRaises(common.ReleaseError):
-                        promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True)
+                        promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
                     self.assertEqual([], backend.patches)
                 finally:
                     self.root = old_root
@@ -297,7 +297,7 @@ class StagedReleaseTests(unittest.TestCase):
                 return {**copy.deepcopy(backend.versions[name][7]), "version": 9}
         backend.on_get = race
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual([], backend.patches)
 
     def test_promotion_readback_mismatch_stops_next_patch(self):
@@ -308,7 +308,7 @@ class StagedReleaseTests(unittest.TestCase):
                 return {**copy.deepcopy(backend.versions[name][8]), "prompt": "Wrong readback."}
         backend.on_get = fail_readback
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="failed-promotion.json", require_evaluation=False, allow_structural_only=True)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="failed-promotion.json", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual(1, len(backend.patches))
         report = self.report(manifest, "failed-promotion.json")
         self.assertEqual("stopped", report["status"])
@@ -319,7 +319,7 @@ class StagedReleaseTests(unittest.TestCase):
         api, backend, manifest, stage_path = self.stage(); backend.requests.clear()
         backend.on_patch = lambda *args: b"not-json"
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="uncertain.json", require_evaluation=False, allow_structural_only=True)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="uncertain.json", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual(1, len(backend.patches))
         report = self.report(manifest, "uncertain.json")
         self.assertEqual("stopped", report["status"])
@@ -332,7 +332,7 @@ class StagedReleaseTests(unittest.TestCase):
                 return {**copy.deepcopy(backend.versions[name][8]), "version": 9}
         backend.on_get = race_after_patch
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="pointer-race.json", require_evaluation=False, allow_structural_only=True)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="pointer-race.json", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual(1, len(backend.patches))
         self.assertEqual("patch_returned_but_verification_failed", self.report(manifest, "pointer-race.json")["results"][0]["status"])
 
@@ -349,30 +349,30 @@ class StagedReleaseTests(unittest.TestCase):
                 raise urllib.error.URLError("synthetic response lost after label change")
         backend.on_patch = commit_then_lose_response
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="partial.json", require_evaluation=False, allow_structural_only=True)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="partial.json", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         report = self.report(manifest, "partial.json")
         self.assertEqual("verified", report["results"][0]["status"])
         self.assertEqual("promotion_outcome_unknown_do_not_retry", report["results"][1]["status"])
         self.assertEqual(2, len(backend.patches))
         backend.on_patch = None; backend.requests.clear()
-        recovered = promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="recovered.json", require_evaluation=False, allow_structural_only=True)
+        recovered = promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="recovered.json", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual("verified", recovered["status"])
         self.assertEqual([], backend.patches)
         self.assertTrue(all(r["status"] == "already_promoted" for r in recovered["results"]))
 
     def test_promotion_existing_report_is_preserved_before_http(self):
         api, backend, manifest, stage_path = self.stage()
-        promotion.promote(api, manifest, stage_path, label="production", report_name="preview.json", require_evaluation=False, allow_structural_only=True)
+        promotion.promote(api, manifest, stage_path, label="production", report_name="preview.json", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         path = manifest.parent / "reports/preview.json"; previous = path.read_bytes()
         backend.requests.clear()
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="preview.json", require_evaluation=False, allow_structural_only=True)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="preview.json", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual(previous, path.read_bytes())
         self.assertEqual([], backend.requests)
 
     def test_promotion_report_verifier_reads_version_and_label_without_writes(self):
         api, backend, manifest, stage_path = self.stage()
-        result = promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True)
+        result = promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         report_path = manifest.parent / "reports" / result["report_file"]
         backend.requests.clear()
         self.assertEqual(1, verify.verify(api, manifest, report_path))
@@ -383,7 +383,7 @@ class StagedReleaseTests(unittest.TestCase):
 
     def test_promotion_report_verifier_detects_label_pointer_drift(self):
         api, backend, manifest, stage_path = self.stage()
-        result = promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True)
+        result = promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         report_path = manifest.parent / "reports" / result["report_file"]
         def changed_pointer(backend, name, query, count):
             if query.get("label") == "production":
@@ -395,7 +395,7 @@ class StagedReleaseTests(unittest.TestCase):
 
     def test_promotion_report_verifier_rejects_preview_and_unapplied_report(self):
         api, backend, manifest, stage_path = self.stage()
-        preview = promotion.promote(api, manifest, stage_path, label="production", require_evaluation=False, allow_structural_only=True)
+        preview = promotion.promote(api, manifest, stage_path, label="production", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         path = manifest.parent / "reports" / preview["report_file"]
         backend.requests.clear()
         with self.assertRaises(common.ReleaseError):
@@ -425,12 +425,12 @@ class StagedReleaseTests(unittest.TestCase):
             raise urllib.error.HTTPError("https://example.com", 409, "synthetic dependency conflict", {}, io.BytesIO(b"omitted"))
         backend.on_patch = commit_then_conflict
         with self.assertRaises(common.ReleaseError) as caught:
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="conflict.json", require_evaluation=False, allow_structural_only=True)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="conflict.json", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertTrue(caught.exception.unknown_write)
         self.assertEqual(1, len(backend.patches))
         self.assertEqual("promotion_outcome_unknown_do_not_retry", self.report(manifest, "conflict.json")["results"][0]["status"])
         backend.on_patch = None; backend.requests.clear()
-        recovered = promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="recovered-409.json", require_evaluation=False, allow_structural_only=True)
+        recovered = promotion.promote(api, manifest, stage_path, label="production", apply=True, report_name="recovered-409.json", require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual("already_promoted", recovered["results"][0]["status"])
         self.assertEqual([], backend.patches)
         self.assertEqual(1, verify.verify(api, manifest, manifest.parent / "reports" / recovered["report_file"]))

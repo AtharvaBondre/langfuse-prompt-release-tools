@@ -49,7 +49,7 @@ def run(host, project_id, destination):
         raise ReleaseError("Only a disposable loopback Langfuse project is allowed.")
     destination = Path(destination).absolute()
     destination.mkdir(mode=0o700, exist_ok=False)
-    sdk, client = Langfuse(base_url=host), Client(host)
+    sdk, client = Langfuse(base_url=host), Client(host, project_id=project_id)
     env = dict(os.environ, RELEASE_PYTHON=sys.executable, RELEASE_PYTHON_PATH=str(ROOT))
     checks, evidence = [], []
     active_probes = []
@@ -111,7 +111,10 @@ def run(host, project_id, destination):
                 source, capture = run_experiment(sdk, manifest, stage, results_path, capture_path, dependency_lock_path=lock_path)
             else:
                 js("experiment", {"manifest": str(manifest), "stage": str(stage), "lock": str(lock_path),
-                   "host": host, "results": str(results_path), "capture": str(capture_path)}, directory)
+                   "host": host, "results": str(results_path), "capture": str(capture_path),
+                   "collector": "persistent", "collector_receipt": str(directory / "collector.json")}, directory)
+                collector = read(directory / "collector.json")
+                check(language + ": persistent collector drained acknowledged requests", collector["closed"] is True and collector["complete"] is True and collector["exitCode"] == 0)
                 source, capture = read(results_path), read(capture_path)
             try:
                 import_experiment(manifest, stage, results_path, capture_path, report_name="missing-remote.json")
@@ -122,7 +125,7 @@ def run(host, project_id, destination):
             expected = make_remote_expectation(source, capture, policy, host=host, project_id=project_id, dataset_kind="local")
             write_report(directory / "remote-expectation.json", expected, create=True)
             remote_path = directory / "remote-receipt.json"
-            remote = verify_remote(RemoteClient(host), expected, wait_seconds=60, report_path=remote_path)
+            remote = verify_remote(RemoteClient(host, project_id=project_id), expected, wait_seconds=60, report_path=remote_path)
             check(language + ": actual remote experiment, cases and typed scores persisted", remote["status"] == "confirmed")
             receipt = import_experiment(manifest, stage, results_path, capture_path,
                                         remote_report_path=remote_path, report_name="evaluation.json")
@@ -130,7 +133,7 @@ def run(host, project_id, destination):
                 check("JavaScript: real failing evaluator remains failed after persistence", receipt["status"] == "failed")
                 try:
                     promote(client, manifest, stage, label="production", apply=True,
-                        evaluation_report=directory / "reports/evaluation.json", dependency_lock=lock_path, report_name="failed-blocked.json")
+                        evaluation_report=directory / "reports/evaluation.json", dependency_lock=lock_path, report_name="failed-blocked.json", allow_unsigned_local=True)
                 except ReleaseError:
                     pass
                 else:
@@ -147,7 +150,7 @@ def run(host, project_id, destination):
                                "labels": ["production"], "tags": ["synthetic-local-v06"]})
                 try:
                     promote(client, manifest, stage, label="production", apply=True,
-                        evaluation_report=directory / "reports/evaluation.json", dependency_lock=lock_path, report_name="drift-blocked.json")
+                        evaluation_report=directory / "reports/evaluation.json", dependency_lock=lock_path, report_name="drift-blocked.json", allow_unsigned_local=True)
                 except ReleaseError as exc:
                     check("JavaScript: transitive label drift refuses promotion", "Dependency" in str(exc))
                 else:
@@ -162,7 +165,7 @@ def run(host, project_id, destination):
                 source, capture = read(results_path), read(capture_path)
                 expected = make_remote_expectation(source, capture, policy, host=host, project_id=project_id, dataset_kind="local")
                 remote_path = directory / "remote-receipt-after-drift.json"
-                remote = verify_remote(RemoteClient(host), expected, wait_seconds=60, report_path=remote_path)
+                remote = verify_remote(RemoteClient(host, project_id=project_id), expected, wait_seconds=60, report_path=remote_path)
                 check("JavaScript: rerun with new lock persisted fully", remote["status"] == "confirmed")
                 receipt = import_experiment(manifest, stage, results_path, capture_path,
                     remote_report_path=remote_path, report_name="evaluation-after-drift.json")
@@ -183,7 +186,7 @@ def run(host, project_id, destination):
                         raise ReleaseError("JavaScript cache probe did not warm its baseline")
                     time.sleep(0.1)
             promoted = promote(client, manifest, stage, label="production", apply=True,
-                evaluation_report=evaluation_path, dependency_lock=lock_path, report_name="promotion.json")
+                evaluation_report=evaluation_path, dependency_lock=lock_path, report_name="promotion.json", allow_unsigned_local=True)
             check(language + ": label promotion verified on server", promoted["status"] == "verified")
             bundled = create_bundle(manifest, stage, evaluation_path, directory / "release.zip")
             checked = verify_bundle(directory / "release.zip", expected_release_id=bundled["release_id"])

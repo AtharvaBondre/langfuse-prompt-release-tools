@@ -249,7 +249,12 @@ def create_bundle(manifest_path, stage_report_path, evaluation_report_path, outp
             "release_id": manifest["release_id"], "inventory": _inventory(manifest)}
 
 
-def verify_bundle(bundle_path, *, expected_release_id=None, trust_policy_path=None, attestation_path=None, trusted_root_path=None):
+def verify_bundle_contents(bundle_path, *, expected_release_id=None, trust_policy_path=None, attestation_path=None, trusted_root_path=None):
+    """Return the report, inventory and exact payload bytes from one verification.
+
+    Consumers must materialize these returned bytes, never reopen the archive
+    after authentication. Saved report objects are not an authentication API.
+    """
     raw = _regular_bytes(bundle_path)
     payloads = {}
     try:
@@ -321,9 +326,17 @@ def verify_bundle(bundle_path, *, expected_release_id=None, trust_policy_path=No
             raise ReleaseError("Signed artifact differs from the bundle whose semantics were verified.")
     elif attestation_path is not None or trusted_root_path is not None:
         raise ReleaseError("Signed verification requires a separately supplied trust policy.")
-    return {"status": "verified", "release_id": manifest["release_id"], "artifact_sha256": _sha(raw),
-            "release_binding": "expected_release" if expected_release_id is not None else "self_consistent",
-            "trust": trust, "inventory": _inventory(manifest)}
+    report = {"status": "verified", "release_id": manifest["release_id"], "artifact_sha256": _sha(raw),
+              "release_binding": "expected_release" if expected_release_id is not None else "self_consistent",
+              "trust": trust, "inventory": _inventory(manifest)}
+    return report, manifest, payloads
+
+
+def verify_bundle(bundle_path, *, expected_release_id=None, trust_policy_path=None, attestation_path=None, trusted_root_path=None):
+    report, _, _ = verify_bundle_contents(bundle_path, expected_release_id=expected_release_id,
+                                          trust_policy_path=trust_policy_path, attestation_path=attestation_path,
+                                          trusted_root_path=trusted_root_path)
+    return report
 
 
 def main():

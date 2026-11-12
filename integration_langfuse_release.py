@@ -100,7 +100,7 @@ def application_checks(client, manifest, stage_path, output_fixture):
     return result, report_path(manifest, result)
 
 
-def run(host, out_dir):
+def run(host, project_id, out_dir):
     url = urlsplit(host)
     if url.hostname not in {"localhost", "127.0.0.1", "::1"}:
         raise ReleaseError("This demo accepts a loopback-only disposable project.")
@@ -108,7 +108,7 @@ def run(host, out_dir):
     if root.is_symlink() or (root.exists() and any(root.iterdir())):
         raise ReleaseError("Choose a fresh empty output directory.")
     root.mkdir(parents=True, exist_ok=True)
-    client = ObservedClient(host)
+    client = ObservedClient(host, project_id=project_id)
     prefix = "release-demo-" + uuid.uuid4().hex
     result = {"started_at_utc": datetime.now(timezone.utc).isoformat(), "status": "running",
               "fixture_prefix": prefix, "model_calls": 0, "checks": [],
@@ -143,7 +143,7 @@ def run(host, out_dir):
         blocked = False
         try:
             promote(client, bad_manifest, bad_stage, label="production", apply=True,
-                    require_evaluation=True, evaluation_report=evidence_path, report_name="blocked-promotion.json")
+                    require_evaluation=True, evaluation_report=evidence_path, report_name="blocked-promotion.json", allow_unsigned_local=True)
         except ReleaseError:
             blocked = True
         blocked_report = json.loads((bad_manifest.parent / "reports" / "blocked-promotion.json").read_text())
@@ -170,20 +170,20 @@ def run(host, out_dir):
         uncertain = False
         try:
             promote(client, manifest, stage_path, label="production", apply=True,
-                    require_evaluation=True, evaluation_report=evidence_path, report_name="lost-response.json")
+                    require_evaluation=True, evaluation_report=evidence_path, report_name="lost-response.json", allow_unsigned_local=True)
         except ReleaseError as exc:
             uncertain = exc.unknown_write
         check("lost_response_stops_after_one_patch", uncertain and client.writes("PATCH") == before + 1)
         check("real_label_moved_before_injected_failure", client.get(names[0], label="production")["version"] == versions[names[0]])
         recovery = promote(client, manifest, stage_path, label="production", apply=True,
-                           require_evaluation=True, evaluation_report=evidence_path, report_name="reconciled.json")
+                           require_evaluation=True, evaluation_report=evidence_path, report_name="reconciled.json", allow_unsigned_local=True)
         check("recovery_skips_completed_patch", client.writes("PATCH") == before + len(names) and
               [row["status"] for row in recovery["results"]] == ["already_promoted", "verified"],
               statuses=[row["status"] for row in recovery["results"]])
         check("exact_versions_and_labels_verified", verify(client, manifest, report_path(manifest, recovery)) == len(names))
         before = client.writes("PATCH")
         repeat = promote(client, manifest, stage_path, label="production", apply=True,
-                         require_evaluation=True, evaluation_report=evidence_path, report_name="repeat.json")
+                         require_evaluation=True, evaluation_report=evidence_path, report_name="repeat.json", allow_unsigned_local=True)
         check("repeat_promotion_has_zero_writes", client.writes("PATCH") == before and
               all(row["status"] == "already_promoted" for row in repeat["results"]))
         listed = client.list_names("production")
@@ -202,11 +202,12 @@ def run(host, out_dir):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", required=True)
+    parser.add_argument("--project-id", required=True)
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--confirm-disposable-project", action="store_true", required=True)
     args = parser.parse_args()
     try:
-        result = run(args.host, args.out_dir)
+        result = run(args.host, args.project_id, args.out_dir)
         print(json.dumps({"status": result["status"], "checks": len(result["checks"]),
                           "write_counts": result["write_counts"], "model_calls": 0}, indent=2))
         return 0

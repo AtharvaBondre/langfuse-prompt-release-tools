@@ -42,7 +42,7 @@ env -i HOME="$HOME" PATH="$PATH" sh -c '
   set -a
   . "$1/runtime.env"
   set +a
-  python3 -c '\''from langfuse_release_common import Client; print(Client("http://127.0.0.1:13830").list_names("production"))'\''
+  python3 -c '\''import os; from langfuse_release_common import Client, ensure_project; client = Client("http://127.0.0.1:13830", project_id=os.environ["LANGFUSE_INIT_PROJECT_ID"]); ensure_project(client); print(client.list_names("production"))'\''
 ' sh "$DEMO_DIR"
 ```
 
@@ -54,12 +54,13 @@ env -i HOME="$HOME" PATH="$PATH" sh -c '
   . "$1/runtime.env"
   set +a
   python3 integration_langfuse_release.py \
-    --host http://127.0.0.1:13830 --out-dir "$1/integration-output" \
+    --host http://127.0.0.1:13830 --project-id "$LANGFUSE_INIT_PROJECT_ID" \
+    --out-dir "$1/integration-output" \
     --confirm-disposable-project
 ' sh "$DEMO_DIR"
 ```
 
-The test creates synthetic text/chat prompts, stages versions, validates deterministic caller checks, blocks a failing evaluation, promotes passing candidates and verifies label targets. It also injects a client exception **after a successful real PATCH** to test reconciliation; this is not an observed Langfuse server failure. No LLM is called. A passing result establishes this tested workflow on the recorded local images, not model quality or universal version compatibility.
+The test creates synthetic text/chat prompts, stages versions, validates deterministic caller checks, blocks a failing evaluation, promotes passing candidates and verifies label targets. Its code explicitly selects unsigned local compatibility for this disposable test; production promotion defaults to the [signed evidence gate](docs/trusted-promotion.md). It also injects a client exception **after a successful real PATCH** to test reconciliation; this is not an observed Langfuse server failure. No LLM is called. A passing result establishes this tested workflow on the recorded local images, not model quality or universal version compatibility.
 
 ## Stop or remove manually
 

@@ -78,7 +78,7 @@ class RemotePolicyIntegrationTests(unittest.TestCase):
 
     def promote(self, values, report_path):
         return promotion.promote(values[0], values[2], values[3], label="production", apply=True,
-                                 evaluation_report=report_path, dependency_lock=values[9], report_name="remote-promotion.json")
+                                 evaluation_report=report_path, dependency_lock=values[9], report_name="remote-promotion.json", allow_unsigned_local=True)
 
     def assert_import_blocked(self, values, receipt_path):
         with self.assertRaises((ReleaseError, OSError, ValueError)):

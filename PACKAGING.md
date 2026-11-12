@@ -92,3 +92,7 @@ After installing the wheel into the test environment, run:
 ```
 
 This copies the portable tests and required example fixtures to a temporary directory, verifies that imports come from the installed package, runs those tests and checks all seventeen installed entrypoints. It removes inherited Langfuse environment settings from child processes and makes no tenant calls. The source archive includes the skill and guides; the wheel remains limited to runtime modules and metadata.
+
+## 0.8 migration
+
+The runtime adds project checks, local operation journals/locks, trusted promotion and supported result projections. The seventeen commands remain the same. Pull, publish, promote and reconcile now require `--project-id`; promotion defaults to trusted CI and provides an explicit `--allow-unsigned-local` option. Read the [migration guide](docs/migration-v08.md) before updating an existing release workflow.

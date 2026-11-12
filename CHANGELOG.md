@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0a1 — 2026-11-12
+
+- Bind snapshots to an independently selected project; check current credentials before export, preview, staging, promotion and reconciliation. Format 1 evidence remains inspectable; remote operations require a fresh export.
+- Require trusted CI evidence by default at promotion. Verify original bundle bytes and external signer expectations, materialize a private workspace, and retain fresh evaluation, dependency and project checks. Unsigned local workflows require an explicit option.
+- Coordinate local snapshot operations with OS locks. Flush atomic journals before writes and add read-only resume proposals, concurrent-process and crash tests.
+- Provide supported Python/JavaScript result projections and an optional bounded persistent JavaScript collector with acknowledgments, backpressure and shutdown receipts.
+- Exercise hosted dataset versions, schemas, typed case/run scores, pagination and missing exports in the disposable SDK/server workflow.
+- Keep the real-application pilot and its capture-overhead measurements explicitly deferred.
+
 ## 0.7.0a1 — 2026-11-12
 
 - Generate reviewable policy drafts from selected cases, UTF-8 source files and explicit score requirements; compute the existing identity fingerprints and validate before separate pinning.

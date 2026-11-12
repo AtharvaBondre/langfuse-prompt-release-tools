@@ -123,15 +123,50 @@ that instrumented access, not all application traffic.
   The interpreter/source path are trusted application configuration. The Python
   module allowlists capture operations, rejects duplicate JSON keys and limits
   messages to 8 MB.
-- Langfuse environment variables and GitHub token variables are stripped from the
-  sidecar environment. The application's actual SDK access remains in the app
-  process. This helper is not an operating-system sandbox.
+- The sidecar environment allows only platform/path/temp/locale settings and an
+  explicitly configured Python source path. Provider/cloud credentials, Langfuse
+  variables, GitHub tokens, proxy variables and Python startup hooks are not
+  inherited. Actual SDK access stays in the app process. This helper is not an
+  operating-system sandbox.
 
-The sidecar is synchronous and starts Python per call. Use it for experiments
+The default sidecar is synchronous and starts Python per call. Use it for experiments
 and low-volume rollout probes, not an unmeasured high-throughput request hook.
 The default timeout is 30 seconds, with an enforced maximum of 60 seconds and
 bounded output. Captured prompt content is not intentionally echoed in bridge
 errors.
+
+## Project SDK results and optionally keep Python alive
+
+The supported `projectExperimentResult(result, {scriptPath, durationMs}, bridge)`
+helper, also available as `bridge.projectResult`, maps actual SDK results into
+the shared Action v1 validator. It preserves experiment/trace/dataset-run IDs,
+typed item and run scores, comments, score configuration IDs and metadata.
+Typed JS BOOLEAN wire values 0/1 become false/true; other values are rejected.
+It never generates missing case IDs or turns evaluator failure into success.
+The packaged SDK example uses this helper.
+
+`PersistentReleaseCapture` is an opt-in asynchronous bridge with one persistent
+Python process. Await its `start`, `capturePrompt`, `projectResult`, `observation`
+and `finish` methods. Always call `await capture.close()` in `finally`, persist
+the returned receipt, and require `receipt.complete` before accepting the run.
+`capturePrompt` returns an acknowledgment with source and processing timestamps;
+`capture.state` exposes a detached copy of the validated execution capture.
+
+Defaults limit queued/in-flight requests to 32, serialized queue bytes to 8 MB,
+individual messages/responses to 8 MB, acknowledgment time to 30 seconds, and
+shutdown to 5 seconds. A full queue rejects the caller and records a dropped
+request. Invalid requests, child crashes, timeouts and shutdown failures remain
+visible in the receipt and block `finish`; no replay or automatic restart occurs.
+`drain()` waits for admitted work. Original adoption access times survive queue
+delay. The worker has no disk spool; acknowledgments are not durable receipts or
+proof of remote persistence.
+
+The persistent prototype has no production overhead measurement. Its byte limits
+bound serialized buffers and capture state, not all process memory. Continue to
+use it for bounded experiments/probes until an application pilot measures it.
+See the [application recipe and full failure contract](../docs/capture-integration.md).
+Set `collector: 'persistent'` and a new `collector_receipt` output path in the JS
+SDK example configuration to exercise this mode explicitly.
 
 For source development only, `pythonPath` can point at this repository. Python's
 normal import precedence includes the current working directory, so use the

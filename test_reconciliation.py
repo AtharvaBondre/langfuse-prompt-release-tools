@@ -24,13 +24,13 @@ class ReconciliationTests(unittest.TestCase):
     report = fixtures.PromptReleaseTests.report
 
     def client(self, prompts=None):
-        api = common.Client("https://example.com", timeout=5)
+        api = common.Client("https://example.com", timeout=5, project_id="synthetic-project")
         backend = PromotionHTTP(prompts or [fixtures.prompt()])
         api._opener = backend
         return api, backend
 
     def read_client(self, backend):
-        api = reconciliation.ReadOnlyClient("https://example.com", timeout=5)
+        api = reconciliation.ReadOnlyClient("https://example.com", timeout=5, project_id="synthetic-project")
         api._opener = backend
         return api
 
@@ -93,9 +93,9 @@ class ReconciliationTests(unittest.TestCase):
                        require_evaluation=False, allow_structural_only=True)
         if lost:
             with self.assertRaises(common.ReleaseError):
-                promotion.promote(api, manifest, stage, **options)
+                promotion.promote(api, manifest, stage, **options, allow_unsigned_local=True)
         else:
-            promotion.promote(api, manifest, stage, **options)
+            promotion.promote(api, manifest, stage, **options, allow_unsigned_local=True)
         backend.on_patch = None
         return api, backend, manifest, manifest.parent / "reports" / "promotion.json"
 
@@ -320,7 +320,7 @@ class ReconciliationTests(unittest.TestCase):
         result = self.check(backend, manifest, source)
         self.assertEqual("unknown", result["results"][0]["classification"])
         self.assertIn("outside the selected release scope", result["results"][0]["reason"])
-        self.assertEqual([], backend.requests)
+        self.assertTrue(all(row["method"] == "GET" and row["path"] == "/api/public/projects" for row in backend.requests))
 
     def test_existing_report_and_original_path_cannot_be_overwritten(self):
         _, backend, manifest, source = self.create_report()
@@ -467,7 +467,7 @@ class ReconciliationTests(unittest.TestCase):
         _, backend, manifest, source = self.create_report(apply=False)
         api = self.read_client(backend)
         backend.requests.clear()
-        argv = ["reconcile", "--host", api.host, "--manifest", str(manifest), "--release-report", str(source)]
+        argv = ["reconcile", "--host", api.host, "--project-id", "synthetic-project", "--manifest", str(manifest), "--release-report", str(source)]
         output = io.StringIO()
         with patch.object(sys, "argv", argv), patch.object(reconciliation, "ReadOnlyClient", return_value=api), \
              patch("sys.stdout", new=output), patch("sys.stderr", new=io.StringIO()), self.assertRaises(SystemExit) as caught:

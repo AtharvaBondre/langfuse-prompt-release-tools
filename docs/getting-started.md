@@ -81,12 +81,12 @@ Read the [policy fields and capture contract](experiment-evidence.md) while adap
 
 These commands use one existing prompt called `example/answer` and the `production` label. Substitute your selections. Run from the repository root with the virtual environment active. Configure `LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and your independently selected `LANGFUSE_PROJECT_ID` through your secret manager or private shell environment.
 
-Use the same dedicated project key set through the release. The remote verifier checks project identity, but the snapshot and all mutation commands do not yet enforce a project-ID binding before writes. Native Langfuse project permissions still apply.
+Select the project independently from its settings. Export, preview, stage and promotion verify the current key against that project. Native Langfuse permissions still apply. Format 1 snapshots need a fresh export; see [0.8 migration](migration-v08.md).
 
 ### Export and review
 
 ```bash
-langfuse-release-pull --host "$LANGFUSE_HOST" --label production \
+langfuse-release-pull --host "$LANGFUSE_HOST" --project-id "$LANGFUSE_PROJECT_ID" --label production \
   --name example/answer --out-dir ./release-review
 ```
 
@@ -104,14 +104,14 @@ Pinning adds the policy and its digest to the snapshot. Do this before staging. 
 ### Preview, then stage the candidate
 
 ```bash
-langfuse-release-publish --host "$LANGFUSE_HOST" \
+langfuse-release-publish --host "$LANGFUSE_HOST" --project-id "$LANGFUSE_PROJECT_ID" \
   --manifest release-review/prompt-index.json --report stage-preview.json
 ```
 
 Review the preview. To create the candidate, run:
 
 ```bash
-langfuse-release-publish --host "$LANGFUSE_HOST" \
+langfuse-release-publish --host "$LANGFUSE_HOST" --project-id "$LANGFUSE_PROJECT_ID" \
   --manifest release-review/prompt-index.json --apply --report stage.json
 ```
 
@@ -136,7 +136,7 @@ Adapt the [Python task](../examples/sdk_experiment.py) or [JavaScript example](.
 1. Call `start_capture` before the experiment with the manifest, stage report, dependency lock and actual dataset/execution identities.
 2. Inside each task, fetch the staged prompt by version through the official SDK.
 3. Call `capture_prompt` with that returned SDK object before compilation or framework conversion. Then execute your task and evaluator.
-4. Preserve the actual SDK results in the supported Action v1 JSON format, including case IDs, trace IDs, outputs and typed scores. The examples contain the projection code.
+4. Preserve the actual SDK results in the supported Action v1 JSON format, including case IDs, trace IDs, outputs and typed scores. Use the supported `project_python_result()` or `projectExperimentResult()` helper; see [capture integration](capture-integration.md).
 5. Call `finalize_capture` after writing the result, and save the returned object.
 
 Save those two files as `release-review/results.json` and `release-review/capture.json`. A `flush()` call leaves remote persistence unconfirmed until you read the exported data back. The official Experiment Action result format is also supported; it still needs capture from the task that fetched the candidate.
@@ -157,14 +157,16 @@ langfuse-release-import-experiment --manifest release-review/prompt-index.json \
   --remote-report release-review/remote.json --report evaluation.json
 ```
 
-Use `--dataset-kind langfuse` for a hosted dataset when that matches the pinned policy and actual experiment. The current live suite uses local synthetic datasets; hosted-dataset checks have offline coverage. See [remote verification](remote-persistence.md) for the API contract.
+Use `--dataset-kind langfuse` for a hosted dataset when that matches the pinned policy and actual experiment. The [hosted-dataset scenario](hosted-dataset-validation.md) exercises pinned versions, schemas, pagination and typed scores on a disposable server. See [remote verification](remote-persistence.md) for the API contract.
 
 The remote command exits with `0` for confirmed, `2` for pending and `1` for failure. Stop on a nonzero result and read the report before continuing. A confirmed export can contain failing scores; the importer evaluates those against your policy. Missing cases, failed checks or stale evidence must be resolved before promotion.
 
 ### Preview and apply the label move
 
+The following command explicitly accepts unsigned local evidence. For a CI release, use [trusted promotion](trusted-promotion.md), which verifies a signed bundle and external signer policy again at this boundary.
+
 ```bash
-langfuse-release-promote --host "$LANGFUSE_HOST" \
+langfuse-release-promote --allow-unsigned-local --host "$LANGFUSE_HOST" --project-id "$LANGFUSE_PROJECT_ID" \
   --manifest release-review/prompt-index.json \
   --stage-report release-review/reports/stage.json --label production \
   --evaluation-report release-review/reports/evaluation.json \
@@ -223,4 +225,4 @@ release-review/
 | A connection loss during a write | [Reconciliation](reconciliation.md); inspect before retrying an uncertain creation. |
 | A promoted label with `not_adopted` observations | The consumer version, caching, fallback and observation window. |
 
-For format changes, use the [0.6 migration guide](migration-v06.md). For all command names and installation options, see [packaging](../PACKAGING.md).
+For format changes, use the [0.8 migration guide](migration-v08.md). For all command names and installation options, see [packaging](../PACKAGING.md).

@@ -70,14 +70,14 @@ class EvaluationGateTests(unittest.TestCase):
     def test_required_gate_blocks_missing_evidence_before_http(self):
         api, backend, manifest, stage_path = self.stage(); backend.requests.clear()
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=True)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, require_evaluation=True, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_default_promotion_requires_evidence_for_preview_and_apply(self):
         api, backend, manifest, stage_path = self.stage(); backend.requests.clear()
         for apply in (False, True):
             with self.subTest(apply=apply), self.assertRaises(common.ReleaseError):
-                promotion.promote(api, manifest, stage_path, label="production", apply=apply)
+                promotion.promote(api, manifest, stage_path, label="production", apply=apply, allow_unsigned_local=True)
             self.assertEqual([], backend.requests)
 
     def test_structural_only_requires_explicit_consistent_boolean_optout(self):
@@ -85,10 +85,10 @@ class EvaluationGateTests(unittest.TestCase):
         for options in ({"require_evaluation": False}, {"require_evaluation": True, "allow_structural_only": True},
                         {"require_evaluation": "false"}, {"allow_structural_only": 1}, {"apply": "true"}):
             with self.subTest(options=options), self.assertRaises(common.ReleaseError):
-                promotion.promote(api, manifest, stage_path, label="production", **options)
+                promotion.promote(api, manifest, stage_path, label="production", **options, allow_unsigned_local=True)
             self.assertEqual([], backend.requests)
         result = promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                                   require_evaluation=False, allow_structural_only=True)
+                                   require_evaluation=False, allow_structural_only=True, allow_unsigned_local=True)
         self.assertEqual("verified", result["status"])
         self.assertIs(True, result["evaluation"]["allow_structural_only"])
         self.assertIs(False, result["evaluation"]["required"])
@@ -101,7 +101,7 @@ class EvaluationGateTests(unittest.TestCase):
         backend.requests.clear()
         with self.assertRaises(common.ReleaseError):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              require_evaluation=False, allow_structural_only=True, evaluation_report=path)
+                              require_evaluation=False, allow_structural_only=True, evaluation_report=path, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     @unittest.skipUnless(os.name == "posix", "POSIX mode bits do not establish Windows ACL privacy")
@@ -113,7 +113,7 @@ class EvaluationGateTests(unittest.TestCase):
 
     def test_promote_cli_defaults_to_required_evidence_and_rejects_conflicting_flags(self):
         api, backend, manifest, stage_path = self.stage(); backend.requests.clear()
-        argv = ["promote", "--host", api.host, "--manifest", str(manifest), "--stage-report", str(stage_path), "--label", "production", "--apply"]
+        argv = ["promote", "--allow-unsigned-local", "--host", api.host, "--project-id", "synthetic-project", "--manifest", str(manifest), "--stage-report", str(stage_path), "--label", "production", "--apply"]
         with patch.object(sys, "argv", argv), patch.object(promotion, "Client", return_value=api), patch("sys.stderr", new=io.StringIO()):
             with self.assertRaises(SystemExit) as caught:
                 promotion.main()
@@ -127,7 +127,7 @@ class EvaluationGateTests(unittest.TestCase):
 
     def test_promote_cli_explicit_structural_flag_is_recorded(self):
         api, backend, manifest, stage_path = self.stage()
-        argv = ["promote", "--host", api.host, "--manifest", str(manifest), "--stage-report", str(stage_path), "--label", "production", "--apply", "--allow-structural-only", "--report", "structural-cli.json"]
+        argv = ["promote", "--allow-unsigned-local", "--host", api.host, "--project-id", "synthetic-project", "--manifest", str(manifest), "--stage-report", str(stage_path), "--label", "production", "--apply", "--allow-structural-only", "--report", "structural-cli.json"]
         with patch.object(sys, "argv", argv), patch.object(promotion, "Client", return_value=api), patch("sys.stdout", new=io.StringIO()):
             promotion.main()
         report = json.loads((manifest.parent / "reports" / "structural-cli.json").read_text())
@@ -138,7 +138,7 @@ class EvaluationGateTests(unittest.TestCase):
         api, backend, manifest, stage_path = self.stage(); backend.requests.clear()
         with self.assertRaises((common.ReleaseError, OSError)):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              require_evaluation=True, evaluation_report=self.root / "absent.json")
+                              require_evaluation=True, evaluation_report=self.root / "absent.json", allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_passing_report_is_bound_to_exact_snapshot_stage_source_and_versions(self):
@@ -150,7 +150,7 @@ class EvaluationGateTests(unittest.TestCase):
         self.assertEqual(raw["snapshot_sha256"], report["snapshot_sha256"])
         self.assertEqual(8, report["results"][0]["version"])
         result = promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                                   require_evaluation=True, evaluation_report=path)
+                                   require_evaluation=True, evaluation_report=path, allow_unsigned_local=True)
         self.assertEqual("verified", result["status"])
         self.assertEqual("passed", result["evaluation"]["status"])
         self.assertEqual(common.fingerprint(report), result["evaluation"]["sha256"])
@@ -166,7 +166,7 @@ class EvaluationGateTests(unittest.TestCase):
         backend.requests.clear()
         with self.assertRaises(common.ReleaseError):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              require_evaluation=True, evaluation_report=path)
+                              require_evaluation=True, evaluation_report=path, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_valid_json_with_bad_application_shape_still_fails(self):
@@ -178,7 +178,7 @@ class EvaluationGateTests(unittest.TestCase):
         self.assertEqual("failed", report["status"])
         backend.requests.clear()
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, evaluation_report=path)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, evaluation_report=path, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_supplied_failed_evidence_is_checked_without_require_flag(self):
@@ -186,7 +186,7 @@ class EvaluationGateTests(unittest.TestCase):
         source, _ = self.input_results(manifest, stage_path, candidate="bad")
         _, path = self.record(manifest, stage_path, source); backend.requests.clear()
         with self.assertRaises(common.ReleaseError):
-            promotion.promote(api, manifest, stage_path, label="production", apply=True, evaluation_report=path)
+            promotion.promote(api, manifest, stage_path, label="production", apply=True, evaluation_report=path, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_missing_required_check_rejected(self):
@@ -249,7 +249,7 @@ class EvaluationGateTests(unittest.TestCase):
         backend.requests.clear()
         with self.assertRaises(common.ReleaseError):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              require_evaluation=True, evaluation_report=path)
+                              require_evaluation=True, evaluation_report=path, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_failed_second_target_blocks_promotion_for_entire_batch(self):
@@ -262,7 +262,7 @@ class EvaluationGateTests(unittest.TestCase):
         backend.requests.clear()
         with self.assertRaises(common.ReleaseError):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              require_evaluation=True, evaluation_report=path)
+                              require_evaluation=True, evaluation_report=path, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
         self.assertIn("production", backend.versions["first"][7]["labels"])
 
@@ -279,7 +279,7 @@ class EvaluationGateTests(unittest.TestCase):
         self.edit(manifest, content="A later {{question}} edit.")
         with self.assertRaises(common.ReleaseError):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              require_evaluation=True, evaluation_report=path)
+                              require_evaluation=True, evaluation_report=path, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_changed_raw_results_invalidates_passing_report_before_http(self):
@@ -287,7 +287,7 @@ class EvaluationGateTests(unittest.TestCase):
         raw["results"][0]["checks"][0]["passed"] = False; source.write_text(json.dumps(raw))
         with self.assertRaises(common.ReleaseError):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              require_evaluation=True, evaluation_report=path)
+                              require_evaluation=True, evaluation_report=path, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_tampered_evaluation_report_invalidates_gate(self):
@@ -295,7 +295,7 @@ class EvaluationGateTests(unittest.TestCase):
         report["results"][0]["version"] = 9; path.write_text(json.dumps(report))
         with self.assertRaises(common.ReleaseError):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              require_evaluation=True, evaluation_report=path)
+                              require_evaluation=True, evaluation_report=path, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_changed_stage_report_invalidates_gate(self):
@@ -304,7 +304,7 @@ class EvaluationGateTests(unittest.TestCase):
         stage_path.write_text(json.dumps(stage))
         with self.assertRaises(common.ReleaseError):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              require_evaluation=True, evaluation_report=path)
+                              require_evaluation=True, evaluation_report=path, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_missing_raw_source_results_blocks_gate(self):
@@ -312,7 +312,7 @@ class EvaluationGateTests(unittest.TestCase):
         source.unlink()
         with self.assertRaises((common.ReleaseError, OSError)):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              require_evaluation=True, evaluation_report=path)
+                              require_evaluation=True, evaluation_report=path, allow_unsigned_local=True)
         self.assertEqual([], backend.requests)
 
     def test_evaluation_report_reuse_cannot_overwrite_evidence(self):
@@ -330,7 +330,7 @@ class EvaluationGateTests(unittest.TestCase):
         backend.on_get = change_after_initial_gate
         with self.assertRaises(common.ReleaseError):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              require_evaluation=True, evaluation_report=path, report_name="changed-during-preflight.json")
+                              require_evaluation=True, evaluation_report=path, report_name="changed-during-preflight.json", allow_unsigned_local=True)
         self.assertTrue(backend.requests)
         self.assertEqual([], backend.patches)
         stopped = json.loads((manifest.parent / "reports/changed-during-preflight.json").read_text())
@@ -346,7 +346,7 @@ class EvaluationGateTests(unittest.TestCase):
         backend.on_patch = change_evidence_after_first_submission
         with self.assertRaises(common.ReleaseError):
             promotion.promote(api, manifest, stage_path, label="production", apply=True,
-                              require_evaluation=True, evaluation_report=path, report_name="changed-mid-batch.json")
+                              require_evaluation=True, evaluation_report=path, report_name="changed-mid-batch.json", allow_unsigned_local=True)
         self.assertEqual(1, len(backend.patches))
         stopped = json.loads((manifest.parent / "reports/changed-mid-batch.json").read_text())
         self.assertEqual("verified", stopped["results"][0]["status"])

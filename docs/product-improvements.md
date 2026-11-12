@@ -6,7 +6,7 @@ Reviewed **11 November 2026**; updated **12 November** with the 0.7 policy helpe
 
 The project covers more than the old README made clear. You can pin release requirements, capture the exact prompts used by a task, check nested dependencies, verify remote results, transfer evidence, inspect interrupted writes and observe application adoption. Python and JavaScript examples exercise those steps against real Langfuse servers.
 
-The 0.6 first-use review found that users had to assemble a policy, insert capture hooks, project SDK results into a common format and connect several commands. They then read several JSON reports to understand one release. Version 0.7 adds a policy helper and a local status view. Capture wiring, evaluator selection and result projection still require application work.
+The 0.6 first-use review found that users had to assemble a policy, insert capture hooks, project SDK results into a common format and connect several commands. They then read several JSON reports to understand one release. Version 0.7 adds a policy helper and a local status view. Version 0.8 adds supported result projections and a bounded persistent collector. Capture placement and evaluator selection still require application decisions.
 
 The strongest direction is to make this release workflow easier to adopt and harder to misconfigure. Langfuse already supplies experiments, prompt composition, CI guidance and general agent tools. We can add more value by improving the connections between those tools than by duplicating them.
 
@@ -26,13 +26,13 @@ The [customer workflows](customer-workflows.md) connect these capabilities to co
 
 ## Next implementation priorities
 
-Items 2 and 3 are implemented in 0.7 and link to their guides below. The remaining items are **planned**. Acceptance criteria describe the evidence needed before marking those items complete.
+This review supplied the acceptance criteria for the completed implementation work: items 2 and 3 shipped in 0.7; items 1 and 4–7 are implemented for 0.8. The [validation record](validation.md) tracks their release checks. The descriptions below preserve the problems that motivated the work. The real-application pilot remains deferred.
 
 ### 1. Bind the selected project before writes
 
 **User benefit:** Catch a changed project key set before staging or promoting in the wrong project on the same Langfuse host.
 
-The snapshot currently binds the host and prompt baseline. The remote verifier also checks project identity, but the earlier mutation path does not require that binding. Two projects with matching prompt baselines could evade a host-only distinction if the operator changes credentials. This is a code-review finding, not a report of a wrong-project incident.
+Before 0.8, the snapshot bound the host and prompt baseline. The remote verifier checked project identity, but the earlier mutation path did not require that binding. Two projects with matching prompt baselines could evade a host-only distinction if the operator changes credentials. This is a code-review finding, not a report of a wrong-project incident.
 
 Record the independently selected project ID in the export and check the project associated with the current key before mutations. Define migration behavior for older snapshots.
 
@@ -54,7 +54,7 @@ Inspection makes no network calls and writes no files. It does not refresh serve
 
 **User benefit:** Carry a reviewed CI trust decision into the command that moves the label.
 
-Bundle/signature verification works today as a separate step. Connect it to a signer-required promotion policy and a validated release workspace. Select the expected signer, release and destination outside the producer's bundle.
+Before 0.8, bundle/signature verification was a separate step. Connect it to a signer-required promotion policy and a validated release workspace. Select the expected signer, release and destination outside the producer's bundle.
 
 **Acceptance:** unsigned, wrong-signer or replayed evidence cannot satisfy a signer-required release; fresh dependency/remote checks still apply; preview and apply use the same rule; preserve an explicit unsigned-local workflow.
 
@@ -70,7 +70,7 @@ Add a folder operation lock, durable journal flushes and process-death tests. Ge
 
 **User benefit:** Add capture to a task with less format-conversion code and predictable request overhead.
 
-Promote the Python/JavaScript result projections from examples into supported helpers. Add one small application recipe with real inputs, evaluators and capture points. Prototype a bounded asynchronous collector for JavaScript, which currently starts a Python sidecar for each capture.
+Promote the Python/JavaScript result projections from examples into supported helpers. Add one small application recipe with real inputs, evaluators and capture points. Prototype a bounded asynchronous collector for JavaScript, whose synchronous helper starts a Python sidecar for each capture. The opt-in persistent implementation is now available in 0.8; overhead measurement remains part of the deferred pilot.
 
 **Acceptance:** helpers preserve the actual case IDs, trace IDs, typed scores and execution identity; packaged examples use the public APIs; queue limits, dropped samples and shutdown outcomes remain visible. Measure latency before making request-path performance claims. Framework-specific packages should follow a demonstrated integration need.
 

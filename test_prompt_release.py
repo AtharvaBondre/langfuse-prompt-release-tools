@@ -61,6 +61,7 @@ class FakeHTTP:
         self.on_get = None
         self.on_post = None
         self.list_pages = None
+        self.project_id = "synthetic-project"
 
     @property
     def posts(self):
@@ -91,6 +92,8 @@ class FakeHTTP:
             return FakeResponse(created)
         if request.method != "GET":
             raise AssertionError("Unexpected HTTP method")
+        if url.path == "/api/public/projects":
+            return FakeResponse({"data": [{"id": self.project_id}]})
         if url.path == "/api/public/v2/prompts":
             page = int(query["page"])
             if self.list_pages is not None:
@@ -135,7 +138,7 @@ class PromptReleaseTests(unittest.TestCase):
             blocker.start(); self.addCleanup(blocker.stop)
 
     def client(self, prompts=None):
-        api = common.Client("https://example.com", timeout=5)
+        api = common.Client("https://example.com", timeout=5, project_id="synthetic-project")
         backend = FakeHTTP(prompts or [prompt()])
         api._opener = backend
         return api, backend
@@ -191,7 +194,7 @@ class PromptReleaseTests(unittest.TestCase):
             occupied.parent.mkdir(parents=True)
             occupied.write_text("created by another invocation")
         backend.on_get = concurrent_file_creation
-        with self.assertRaises(FileExistsError):
+        with self.assertRaises(common.ReleaseError):
             self.snapshot(api)
         self.assertEqual("created by another invocation", occupied.read_text())
         self.assertFalse((destination / "prompt-index.json").exists())

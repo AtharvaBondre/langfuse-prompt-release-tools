@@ -4,7 +4,7 @@
 
 Use this toolkit alongside Langfuse to review a prompt change, test the candidate through your application, and move a deployment label after your required checks pass. You can verify stored experiment results, inspect an interrupted release, and check which version your instrumented app requests received.
 
-[Try the demo](#try-it-before-wiring-your-app) · [Get started](docs/getting-started.md) · [Customer workflows](docs/customer-workflows.md) · [Compare with native Langfuse](docs/langfuse-comparison.md) · [Download 0.7.0a1](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/releases/tag/v0.7.0a1)
+[Try the demo](#try-it-before-wiring-your-app) · [Get started](docs/getting-started.md) · [Customer workflows](docs/customer-workflows.md) · [Compare with native Langfuse](docs/langfuse-comparison.md) · [Download 0.8.0a1](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/releases/tag/v0.8.0a1)
 
 ![Release workflow: review prompt edits and required tests; test exact versions and nested prompts; verify cases and stored scores; promote a selected label; observe app requests and cache or fallback behavior.](docs/images/release-workflow.svg)
 
@@ -19,7 +19,8 @@ You tested a candidate on Tuesday. A teammate changes a shared prompt before you
 | Your experiment finished, but export lost a case or score. | Read the required cases and typed scores back from Langfuse before accepting remote persistence. | Separate local-completion and remote-persistence outcomes. |
 | Your deployment command lost its connection. | Inspect the saved attempt and read the current server state before deciding what to do next. | Completed, pending, conflicting or unknown outcomes. |
 | The label moved, but an app still uses an old prompt. | Compare instrumented SDK accesses with the released version and expected dependencies. | Cache/fallback details, missing consumers and time-window coverage. |
-| Another reviewer or CI job needs the release evidence. | Bundle the original files and verify their contents on another machine. | An inventory, release identity and optional GitHub CI provenance. |
+| Another reviewer or CI job needs the release evidence. | Verify a signed bundle again when promoting it on another machine. | Original bytes, independent signer expectations and a promotion receipt. |
+| Your shell has credentials for a different project on the same server. | Compare the current key’s project with the independently selected destination before a release operation. | A blocked attempt with no release write. |
 
 ## Use it alongside Langfuse
 
@@ -58,7 +59,7 @@ For a small project that needs prompt editing and label updates, native Langfuse
 
 The workflow starts disposable Langfuse instances on GitHub-hosted runners, creates test credentials, exercises the release process and removes its containers. It uses synthetic data and makes no model-provider calls. GitHub Actions usage follows your account's runner limits.
 
-You will see a failing JavaScript evaluation block promotion, a nested prompt change invalidate an earlier evaluation, a cached app access differ from a fresh access, and two instrumented consumers complete a rollout window. The [guided demo](docs/getting-started.md#1-run-the-working-example) explains the output and the local Docker option.
+You will see a hosted dataset checked across pages, missing scores stay incomplete, schema changes block acceptance, a failing JavaScript evaluation block promotion, a nested prompt change invalidate an earlier evaluation, a cached app access differ from a fresh access, and two instrumented consumers complete a rollout window. The [guided demo](docs/getting-started.md#1-run-the-working-example) explains the output and the local Docker option.
 
 ## Install the commands
 
@@ -73,7 +74,7 @@ python -m pip install .
 langfuse-release-pull --help
 ```
 
-On Windows PowerShell, use `py -m venv .venv` and `.\.venv\Scripts\Activate.ps1` in place of the two environment commands above. The [release assets](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/releases/tag/v0.7.0a1) include a Python wheel, source archive, JavaScript helper and checksums.
+On Windows PowerShell, use `py -m venv .venv` and `.\.venv\Scripts\Activate.ps1` in place of the two environment commands above. The [release assets](https://github.com/AtharvaBondre/langfuse-prompt-release-tools/releases/tag/v0.8.0a1) include a Python wheel, source archive, JavaScript helper and checksums.
 
 Install `.[example]` to run the Python SDK examples and run `npm ci --prefix js --ignore-scripts` for the JavaScript example. Signature verification uses the GitHub CLI, `gh`. The core Python package has no required third-party Python dependencies.
 
@@ -104,10 +105,10 @@ Start with the [step-by-step guide](docs/getting-started.md). It shows the comma
 | Step | Your work | Guide |
 |---|---|---|
 | Review | Export the selected prompt and choose the dataset, evaluator thresholds and execution configuration. | [Policy and evidence](docs/experiment-evidence.md) |
-| Stage and test | Create the candidate, record its dependencies, and run your task against its exact version. | [Python example](examples/sdk_experiment.py), [JavaScript helper](js/README.md) |
+| Stage and test | Create the candidate, record its dependencies, and run your task against its exact version. | [Integration recipe](docs/capture-integration.md), [JavaScript helper](js/README.md) |
 | Verify and promote | Import the results, require remote persistence if your policy calls for it, then preview and apply the label move. | [Getting started](docs/getting-started.md#3-run-a-release-with-your-own-app), [remote verification](docs/remote-persistence.md) |
 | Review application use | Capture SDK accesses and check the consumers, versions and time windows you chose. | [Adoption](docs/dependencies-and-adoption.md), [rollout windows](docs/rollout-observation.md) |
-| Share or recover | Transfer test evidence, verify CI identity, or inspect an interrupted attempt. | [Bundles and signatures](docs/portable-evidence.md), [recovery](docs/reconciliation.md) |
+| Share or recover | Transfer test evidence, verify CI identity, or inspect an interrupted attempt. | [Trusted promotion](docs/trusted-promotion.md), [recovery](docs/local-recovery.md) |
 
 ### Read a release outcome
 
@@ -123,11 +124,11 @@ You get the distinction between a passing experiment, a changed label and observ
 
 ## Validation and next work
 
-The current release is **0.7.0a1**, adding policy setup and local release inspection. The [validation record](docs/validation.md) separates its checks from the earlier 0.6 SDK/server matrix. That matrix passed **24 checks on Langfuse 4.59.0** and **38 on 4.78.0**, using Python SDK 5.2.0 and JS SDK 6.1.1 on Linux AMD64.
+The 0.8 update adds project checks before writes, signed evidence at promotion, durable local recovery records, supported Python/JavaScript result helpers and a bounded persistent JavaScript collector. The [migration guide](docs/migration-v08.md) explains the new project ID requirement and the explicit unsigned-local option.
 
-This remains an alpha for teams willing to integrate capture into their task. The terminal status view links to the underlying JSON evidence. Application observations cover the requests you instrument, and CI provenance identifies the builder and artifact. Native Langfuse authorization still controls server access. Use a dedicated project key set throughout a release; project identity checks before all mutation commands remain planned.
+The [validation record](docs/validation.md) lists tested versions and separates offline checks, real SDK/server runs and signed CI evidence. Hosted datasets have their own [reproducible scenario](docs/hosted-dataset-validation.md). These checks use synthetic applications and make no model-provider calls.
 
-The next priorities are project checks before writes, signer-required promotion, stronger recovery controls and less application integration work. We have deferred an existing-application pilot until a suitable app/test environment is available. See the [product improvement plan](docs/product-improvements.md) and [implementation roadmap](docs/roadmap.md).
+This remains an alpha. Application observations cover the requests you instrument; a local lock cannot prevent another machine from changing a label. We have deferred the existing-application pilot until an app/test environment is available, including measurement of capture overhead. See the [roadmap](docs/roadmap.md) for what is shipped and what still needs real-user evidence.
 
 ## Project and contributions
 

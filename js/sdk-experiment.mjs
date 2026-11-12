@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { LangfuseClient, RunnerContext } from '@langfuse/client';
 import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
-import { ReleaseCapture, sdkVersion } from './capture.mjs';
+import { ReleaseCapture, PersistentReleaseCapture, projectExperimentResult, sdkVersion } from './capture.mjs';
 
 const bridge = new ReleaseCapture({ python: process.env.RELEASE_PYTHON ?? 'python3',
   pythonPath: process.env.RELEASE_PYTHON_PATH });
@@ -29,48 +29,47 @@ function save(path, value) {
 }
 
 export async function experiment(config) {
-  const identity = identities();
-  const state = bridge.start({ manifestPath: config.manifest, stageReportPath: config.stage,
-    dependencyLockPath: config.lock, dataset: identity.dataset, execution: identity.execution });
-  if (state.targets.length !== 1) throw new Error('Example expects one target');
-  const target = state.targets[0];
-  const auth = { publicKey: process.env.LANGFUSE_PUBLIC_KEY, secretKey: process.env.LANGFUSE_SECRET_KEY,
-    baseUrl: config.host };
-  const provider = new NodeTracerProvider({ spanProcessors: [new LangfuseSpanProcessor(auth)] });
-  provider.register();
-  const client = new LangfuseClient(auth);
-  const started = performance.now();
+  const capture = config.collector === 'persistent'
+    ? new PersistentReleaseCapture({ python: process.env.RELEASE_PYTHON ?? 'python3', pythonPath: process.env.RELEASE_PYTHON_PATH })
+    : bridge;
+  let provider;
   try {
+    const identity = identities();
+    const state = await capture.start({ manifestPath: config.manifest, stageReportPath: config.stage,
+      dependencyLockPath: config.lock, dataset: identity.dataset, execution: identity.execution });
+    if (state.targets.length !== 1) throw new Error('Example expects one target');
+    const target = state.targets[0];
+    const auth = { publicKey: process.env.LANGFUSE_PUBLIC_KEY, secretKey: process.env.LANGFUSE_SECRET_KEY,
+      baseUrl: config.host };
+    provider = new NodeTracerProvider({ spanProcessors: [new LangfuseSpanProcessor(auth)] });
+    provider.register();
+    const client = new LangfuseClient(auth);
+    const started = performance.now();
     const result = await new RunnerContext({ client }).runExperiment({ name: 'js-release-contract-demo',
       data: CASES, maxConcurrency: 1,
       task: async item => {
         const prompt = await client.prompt.get(target.name, { version: target.version, cacheTtlSeconds: 0, type: 'text' });
-        bridge.capturePrompt(item.id, prompt, { name: target.name, version: target.version });
+        await capture.capturePrompt(item.id, prompt, { name: target.name, version: target.version });
         return JSON.parse(prompt.compile(item.input));
       },
       evaluators: [async ({ output, expectedOutput }) => ({ name: 'answer-exact',
         value: JSON.stringify(output) === JSON.stringify(expectedOutput) ? 1 : 0, dataType: 'BOOLEAN' })],
     });
-    // Official JS scores accept numeric BOOLEAN wire values, not JS booleans.
-    // Preserve the explicit type while projecting into the shared local contract.
-    const evaluation = row => ({ name: row.name,
-      value: row.dataType === 'BOOLEAN' && (row.value === 0 || row.value === 1) ? row.value === 1 : row.value,
-      ...(row.dataType ? { data_type: row.dataType } : {}) });
-    const artifact = { schema_version: 'v1', action_metadata: { producer: 'javascript-sdk-example', sdk_version: sdkVersion },
-      results: [{ script_path: 'js/sdk-experiment.mjs', script_name: 'sdk-experiment.mjs', runtime: 'node',
-        duration_ms: Math.round(performance.now() - started), status: 'passed', error: null,
-        langfuse_experiment_url: result.experimentUrl ?? null,
-        experiment_result: { experiment_id: result.experimentId, run_name: result.runName,
-          item_results: result.itemResults.map(row => ({ item: { id: row.item.id, input: row.item.input, expected_output: row.item.expectedOutput },
-            input: row.input, expected_output: row.expectedOutput, output: row.output,
-            trace_id: row.traceId, evaluations: row.evaluations.map(evaluation) })),
-          run_evaluations: result.runEvaluations.map(evaluation) } }] };
+    const artifact = await projectExperimentResult(result, { scriptPath: 'js/sdk-experiment.mjs',
+      durationMs: Math.round(performance.now() - started) }, capture);
     save(config.results, artifact);
     await provider.forceFlush();
-    save(config.capture, bridge.finish(config.results, { remoteExport: 'unconfirmed' }));
+    save(config.capture, await capture.finish(config.results, { remoteExport: 'unconfirmed' }));
     return { experiment_id: result.experimentId, cases: result.itemResults.length, sdk: sdkVersion };
   } finally {
-    await provider.shutdown();
+    try { await provider?.shutdown(); }
+    finally {
+      if (capture instanceof PersistentReleaseCapture) {
+        const receipt = await capture.close();
+        if (config.collector_receipt) save(config.collector_receipt, receipt);
+        if (!receipt.complete) throw new Error('Capture collector closed with incomplete evidence');
+      }
+    }
   }
 }
 
