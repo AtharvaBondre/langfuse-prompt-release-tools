@@ -1,0 +1,68 @@
+{
+  "version": "0.8.0a1",
+  "recorded_date": "2026-11-12",
+  "code_commit": "d705b072457171d31d37be012927fbba0c427c71",
+  "status": "passed",
+  "local": {
+    "source_distribution": {
+      "run": 530,
+      "passed": 529,
+      "skipped": 1,
+      "skip": "optional official SDK object test"
+    },
+    "installed_wheel": {
+      "run": 514,
+      "passed": 512,
+      "skipped": 2,
+      "skip": [
+        "optional official SDK object test",
+        "optional schema dependency"
+      ],
+      "cli_help_passed": 17
+    },
+    "javascript_source": {
+      "passed": 28
+    },
+    "javascript_installed": {
+      "passed": 28
+    }
+  },
+  "ci": {
+    "cross_platform": {
+      "run_id": 43196790713,
+      "jobs_passed": 9
+    },
+    "signed_evidence": {
+      "run_id": 43196790482,
+      "jobs_passed": 2
+    },
+    "live_sdk": {
+      "run_id": 43196790635,
+      "jobs_passed": 2
+    }
+  },
+  "matrix": [
+    {
+      "langfuse": "4.59.0",
+      "platform": "linux/amd64",
+      "checks_passed": 40
+    },
+    {
+      "langfuse": "4.78.0",
+      "platform": "linux/amd64",
+      "checks_passed": 54
+    }
+  ],
+  "sdk": {
+    "python": "5.2.0",
+    "javascript": "6.1.1"
+  },
+  "model_calls": 0,
+  "cleanup": "complete",
+  "scope": "Disposable synthetic SDK/server tests; real CI signatures against synthetic HTTP promotion fixture",
+  "deferred": [
+    "Existing-application pilot",
+    "Production request-path overhead measurements"
+  ],
+  "release_commit_evidence": "See GitHub v0.8.0a1 release notes for final commit and CI links; documentation-only closeout follows code validation."
+}

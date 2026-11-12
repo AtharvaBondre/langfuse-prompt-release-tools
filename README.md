@@ -124,9 +124,9 @@ You get the distinction between a passing experiment, a changed label and observ
 
 ## Validation and next work
 
-The 0.8 update adds project checks before writes, signed evidence at promotion, durable local recovery records, supported Python/JavaScript result helpers and a bounded persistent JavaScript collector. The [migration guide](docs/migration-v08.md) explains the new project ID requirement and the explicit unsigned-local option.
+Release **0.8.0a1** adds project checks before writes, signed evidence at promotion, durable local recovery records, supported Python/JavaScript result helpers and a bounded persistent JavaScript collector. The [migration guide](docs/migration-v08.md) explains the new project ID requirement and the explicit unsigned-local option.
 
-The [validation record](docs/validation.md) lists tested versions and separates offline checks, real SDK/server runs and signed CI evidence. Hosted datasets have their own [reproducible scenario](docs/hosted-dataset-validation.md). These checks use synthetic applications and make no model-provider calls.
+All **13 CI jobs passed**. The real SDK matrix passed **40 checks on Langfuse 4.59.0** and **54 on 4.78.0**. The [validation record](docs/validation.md) separates package checks, real SDK/server runs and signed CI evidence. Hosted datasets have their own [reproducible scenario](docs/hosted-dataset-validation.md). These checks use synthetic applications and make no model-provider calls.
 
 This remains an alpha. Application observations cover the requests you instrument; a local lock cannot prevent another machine from changing a label. We have deferred the existing-application pilot until an app/test environment is available, including measurement of capture overhead. See the [roadmap](docs/roadmap.md) for what is shipped and what still needs real-user evidence.
 

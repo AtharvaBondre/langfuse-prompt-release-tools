@@ -26,7 +26,7 @@ This adds release evidence and checks around official Langfuse services. It does
 
 The maintainer explicitly deferred the real-application pilot on 11 November 2026 because no application/test environment is available yet. The current integration proof uses synthetic applications and does not include feedback from an existing deployed consumer. Select the application/repository and test environment, instrument its actual accesses, measure overhead and choose rollout thresholds from that evidence. No customer or production deployment was performed as part of this personal repository release.
 
-## Implemented for 0.8, undergoing release validation
+## Completed in 0.8.0a1
 
 | Work item | Delivered behavior | Guide |
 |---|---|---|
@@ -36,7 +36,7 @@ The maintainer explicitly deferred the real-application pilot on 11 November 202
 | Easier capture integration | Supported Python/JS result projections, application recipe, opt-in persistent JS collector with bounded queues and explicit acknowledgment/shutdown/loss receipts. | [Capture integration](capture-integration.md) |
 | Hosted dataset compatibility | Real hosted dataset versions/schemas, typed case/run scores, paging and negative controls in the disposable matrix. | [Hosted validation](hosted-dataset-validation.md) |
 
-The [validation record](validation.md) distinguishes completed checks from checks still running. The deferred application pilot above is not counted as finished.
+All five items passed the [release validation](validation.md), including cross-platform CI, real signatures and the disposable server matrix. The deferred application pilot above is not counted as finished.
 
 ## Next decisions after this release
 
