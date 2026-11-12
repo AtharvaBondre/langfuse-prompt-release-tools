@@ -34,8 +34,8 @@ def utc():
 
 
 class ObservedClient(Client):
-    def __init__(self, host):
-        super().__init__(host)
+    def __init__(self, host, *, project_id):
+        super().__init__(host, project_id=project_id)
         self.patches = 0
         self.lose_patch = False
 

@@ -21,8 +21,8 @@ from verify_langfuse_prompts import verify
 
 
 class ObservedClient(Client):
-    def __init__(self, host):
-        super().__init__(host, timeout=30)
+    def __init__(self, host, *, project_id):
+        super().__init__(host, timeout=30, project_id=project_id)
         self.calls = []
         self.lose_next_patch_response = False
 

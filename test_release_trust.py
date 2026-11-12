@@ -7,6 +7,7 @@ import stat
 import subprocess
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import langfuse_release_bundle as bundle
@@ -288,6 +289,73 @@ class TrustedPromotionTests(unittest.TestCase):
             return saved_open(path, flags, *args, **kwargs)
         with patch("langfuse_release_trust.os.open", side_effect=replaced):
             with self.assertRaisesRegex(ReleaseError, "replaced during"):
+                trust._read_input(source)
+
+    def test_stable_input_reader_accepts_different_path_and_descriptor_timestamp_representations(self):
+        source = self.root / "portable-stat.json"
+        source.write_bytes(b"original bytes")
+        original_fstat = os.fstat
+        def descriptor_stat(descriptor):
+            value = original_fstat(descriptor)
+            # Model Windows stat/fstat creation/change-time and precision
+            # differences; neither view changes over the course of the read.
+            return SimpleNamespace(**{field: getattr(value, field) for field in
+                ("st_dev", "st_ino", "st_mode", "st_size")},
+                st_mtime_ns=value.st_mtime_ns + 1_000_000,
+                st_ctime_ns=value.st_ctime_ns - 10_000_000)
+        with patch.object(trust.os, "fstat", side_effect=descriptor_stat):
+            self.assertEqual(b"original bytes", trust._read_input(source))
+
+    def test_stable_input_reader_still_detects_descriptor_changes_with_different_timestamps(self):
+        source = self.root / "descriptor-race.json"
+        source.write_bytes(b"original bytes")
+        original_fstat = os.fstat
+        for field in ("st_dev", "st_ino", "st_size", "st_mode", "st_mtime_ns", "st_ctime_ns"):
+            calls = []
+            def descriptor_stat(descriptor):
+                value = original_fstat(descriptor)
+                attributes = {name: getattr(value, name) for name in
+                    ("st_dev", "st_ino", "st_size", "st_mode", "st_mtime_ns", "st_ctime_ns")}
+                attributes["st_mtime_ns"] += 1_000_000
+                attributes["st_ctime_ns"] -= 10_000_000
+                if calls:
+                    attributes[field] += 1
+                calls.append(descriptor)
+                return SimpleNamespace(**attributes)
+            with self.subTest(field=field), patch.object(trust.os, "fstat", side_effect=descriptor_stat):
+                with self.assertRaisesRegex(ReleaseError, "changed during"):
+                    trust._read_input(source)
+
+    def test_stable_input_reader_still_detects_path_changes_after_descriptor_closes(self):
+        source = self.root / "path-race.json"
+        source.write_bytes(b"original bytes")
+        original_stat = Path.stat
+        for field in ("st_dev", "st_ino", "st_size", "st_mode", "st_mtime_ns", "st_ctime_ns"):
+            calls = []
+            def path_stat(path, *args, **kwargs):
+                value = original_stat(path, *args, **kwargs)
+                if path != source or kwargs.get("follow_symlinks") is False:
+                    return value
+                attributes = {name: getattr(value, name) for name in
+                    ("st_dev", "st_ino", "st_size", "st_mode", "st_mtime_ns", "st_ctime_ns")}
+                if calls:
+                    attributes[field] += 1
+                calls.append(path)
+                return SimpleNamespace(**attributes)
+            with self.subTest(field=field), patch.object(Path, "stat", path_stat):
+                with self.assertRaisesRegex(ReleaseError, "changed during"):
+                    trust._read_input(source)
+
+    def test_stable_input_reader_requires_same_size_across_path_descriptor_and_bytes(self):
+        source = self.root / "size-race.json"
+        source.write_bytes(b"original bytes")
+        original_fstat = os.fstat
+        def descriptor_stat(descriptor):
+            value = original_fstat(descriptor)
+            return SimpleNamespace(**{field: getattr(value, field) for field in
+                ("st_dev", "st_ino", "st_mode", "st_mtime_ns", "st_ctime_ns")}, st_size=value.st_size + 1)
+        with patch.object(trust.os, "fstat", side_effect=descriptor_stat):
+            with self.assertRaisesRegex(ReleaseError, "changed during"):
                 trust._read_input(source)
 
     def promote(self, evidence, **changes):

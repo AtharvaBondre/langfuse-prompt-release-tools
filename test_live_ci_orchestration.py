@@ -95,6 +95,17 @@ class LiveCIOrchestrationTests(unittest.TestCase):
                 self.assertEqual(summary["status_before_cleanup_failure"], "passed")
         self.assertEqual((live.ROOT / "compose.demo.json").read_bytes(), before)
 
+    def test_both_disposable_demo_clients_accept_the_required_project(self):
+        from examples.sdk_release_demo import ObservedClient as SDKClient
+        from integration_langfuse_release import ObservedClient as LegacyClient
+        from langfuse_release_common import Client
+        # Run the constructors used by both real CLI demos without opening HTTP.
+        with patch.dict(os.environ, {"LANGFUSE_PUBLIC_KEY": "synthetic", "LANGFUSE_SECRET_KEY": "synthetic"}), \
+                patch.object(Client, "_request", side_effect=AssertionError("No remote calls in constructor")):
+            for client_type in (SDKClient, LegacyClient):
+                client = client_type(live.HOST, project_id="synthetic-project")
+                self.assertEqual("synthetic-project", client.expected_project_id)
+
     def test_success_and_artifact_privacy(self):
         self.exercise("passed")
 

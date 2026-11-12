@@ -43,8 +43,15 @@ def _read_input(path):
         raw = handle.read(MAX_BYTES + 1)
         closed = os.fstat(handle.fileno())
     after = _no_links(path).stat()
-    attributes = lambda value: (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
-    if len(raw) > MAX_BYTES or not attributes(before) == attributes(opened) == attributes(closed) == attributes(after):
+    attributes = lambda value: (value.st_dev, value.st_ino, value.st_mode, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+    # Windows path stat and descriptor fstat can expose different timestamp
+    # precision/semantics. Compare changes within each API, while requiring
+    # their file identity and byte counts to agree across APIs. A constant
+    # representation difference must not look like a concurrent modification.
+    if (len(raw) > MAX_BYTES or attributes(before) != attributes(after) or
+            attributes(opened) != attributes(closed) or
+            (after.st_dev, after.st_ino) != (closed.st_dev, closed.st_ino) or
+            not before.st_size == opened.st_size == closed.st_size == after.st_size == len(raw)):
         raise ReleaseError("Promotion input changed during its read.")
     return raw
 
